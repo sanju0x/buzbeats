@@ -5,8 +5,8 @@ import { searchTracks, streamUrl } from "@/lib/lavalinkClient";
 import { serverEnv } from "@/lib/serverEnv";
 import { saveRadioSession } from "@/lib/supabaseServer";
 
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const XAI_CHAT_COMPLETIONS_URL = "https://api.x.ai/v1/chat/completions";
+const DEFAULT_XAI_MODEL = "grok-4.5";
 
 const MOOD_BRIEF = {
   romantic: "warm, intimate, slow-tempo love songs",
@@ -31,9 +31,9 @@ export async function POST(request) {
   const moodBrief = MOOD_BRIEF[mood] || MOOD_BRIEF.feelgood;
 
   let suggestions = FALLBACK_TRACKS[mood] || FALLBACK_TRACKS.feelgood;
-  let usedGemini = false;
+  let usedGrok = false;
 
-  if (env.GEMINI_API_KEY) {
+  if (env.XAI_API_KEY) {
     const prompt = `You are a music-programming DJ for a ${languageLabel}-speaking café/restaurant.
 Suggest 8 real, well-known ${languageLabel} songs that fit this mood: ${moodBrief}.
 Avoid these already-played titles: ${exclude.join(", ") || "none"}.
@@ -41,20 +41,30 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
 [{"title": "song title", "artist": "artist name"}]`;
 
     try {
-      const res = await fetch(`${GEMINI_URL}?key=${env.GEMINI_API_KEY}`, {
+      const res = await fetch(XAI_CHAT_COMPLETIONS_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.XAI_API_KEY}`,
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.9 },
+          model: env.XAI_MODEL || DEFAULT_XAI_MODEL,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.9,
         }),
       });
+
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(`xAI request failed with ${res.status}: ${message}`);
+      }
+
       const data = await res.json();
-      const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+      const raw = data?.choices?.[0]?.message?.content || "[]";
       const cleaned = raw.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(cleaned);
 
-      // Only accept Gemini's output if it's actually a usable, non-empty list.
+      // Only accept Grok AI's output if it's actually a usable, non-empty list.
       // Otherwise silently keep the fallback so we never end up with zero suggestions.
       const isUsable =
         Array.isArray(parsed) &&
@@ -63,18 +73,18 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
 
       if (isUsable) {
         suggestions = parsed;
-        usedGemini = true;
+        usedGrok = true;
       } else {
-        console.warn("[recommend] Gemini returned no usable suggestions, using fallback list");
+        console.warn("[recommend] Grok AI returned no usable suggestions, using fallback list");
       }
     } catch (err) {
-      console.error("[recommend] Gemini failed, using fallback:", err.message);
+      console.error("[recommend] Grok AI failed, using fallback:", err.message);
     }
   }
 
   if (!env.LAVALINK_HOST || !env.LAVALINK_PASSWORD) {
     const tracks = suggestions.map((s) => ({ ...s, streamUrl: null, artworkUrl: null }));
-    await persistSession({ session, language, mood, tracks, source: usedGemini ? "gemini" : "fallback" });
+    await persistSession({ session, language, mood, tracks, source: usedGrok ? "grok" : "fallback" });
     return NextResponse.json({
       tracks,
       error: "lavalink_not_configured",
@@ -105,7 +115,7 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
 
   if (resolved.length === 0) {
     const tracks = suggestions.map((s) => ({ ...s, streamUrl: null }));
-    await persistSession({ session, language, mood, tracks, source: usedGemini ? "gemini" : "fallback" });
+    await persistSession({ session, language, mood, tracks, source: usedGrok ? "grok" : "fallback" });
     return NextResponse.json({
       tracks,
       error: "lavalink_search_returned_nothing",
@@ -117,7 +127,7 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
     language,
     mood,
     tracks: resolved,
-    source: usedGemini ? "gemini" : "fallback",
+    source: usedGrok ? "grok" : "fallback",
   });
 
   return NextResponse.json({ tracks: resolved, sessionId });
