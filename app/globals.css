@@ -1,0 +1,266 @@
+:root {
+  --clay-bg: #e7e0d3;
+  --clay-surface: #ece6da;
+  --clay-surface-2: #dfd7c8;
+  --ink: #3b2f35;
+  --ink-soft: #776a70;
+  --shadow-dark: rgba(56, 44, 40, 0.38);
+  --shadow-light: rgba(255, 252, 244, 0.85);
+
+  --mood-romantic: #d9819a;
+  --mood-sad: #7186ae;
+  --mood-lofi: #5c9088;
+  --mood-feelgood: #dc9b4f;
+  --mood-current: var(--mood-feelgood);
+
+  --radius-lg: 32px;
+  --radius-md: 22px;
+  --radius-sm: 14px;
+
+  --font-display: "Fraunces", "Iowan Old Style", serif;
+  --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: var(--clay-bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+body {
+  background-image: radial-gradient(
+      circle at 15% 10%,
+      rgba(255, 255, 255, 0.5),
+      transparent 45%
+    ),
+    radial-gradient(circle at 85% 90%, rgba(0, 0, 0, 0.05), transparent 50%);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.clay-raised {
+  background: var(--clay-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 8px 8px 18px var(--shadow-dark), -8px -8px 18px var(--shadow-light);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.clay-pressed {
+  background: var(--clay-surface-2);
+  border-radius: var(--radius-md);
+  box-shadow: inset 5px 5px 10px var(--shadow-dark),
+    inset -5px -5px 10px var(--shadow-light);
+}
+
+.clay-pebble {
+  border-radius: 999px;
+  border: none;
+  background: var(--clay-surface);
+  box-shadow: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clay-pebble:active {
+  transform: scale(0.94);
+  box-shadow: inset 4px 4px 9px var(--shadow-dark),
+    inset -4px -4px 9px var(--shadow-light);
+}
+
+.stage {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  transition: background 0.6s ease;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.headline {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+/* ---------------------------------------------------------------- */
+/* Uiverse.io elements — button (alexroumi) & checkbox (cbolson)     */
+/* ---------------------------------------------------------------- */
+
+.uiv-btn {
+  padding: 15px 25px;
+  border: unset;
+  border-radius: 15px;
+  color: #212121;
+  z-index: 1;
+  background: #e8e8e8;
+  position: relative;
+  font-weight: 1000;
+  font-size: 17px;
+  box-shadow: 4px 8px 19px -3px rgba(0, 0, 0, 0.27);
+  transition: all 250ms;
+  overflow: hidden;
+}
+
+.uiv-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
+  border-radius: 15px;
+  background-color: var(--uiv-btn-fill, #212121);
+  z-index: -1;
+  box-shadow: 4px 8px 19px -3px rgba(0, 0, 0, 0.27);
+  transition: all 250ms;
+}
+
+.uiv-btn:hover {
+  color: #e8e8e8;
+}
+
+.uiv-btn:hover::before {
+  width: 100%;
+}
+
+.uiv-checkbox-group {
+  --_clr-primary: #776a70;
+  --_clr-hover: #dc9b4f;
+  --_clr-checked: #5c9088;
+  display: flex;
+  gap: 22px;
+}
+.uiv-checkbox-group > label {
+  --_clr-current: var(--_clr-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: var(--_clr-current);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 150ms ease-in-out;
+}
+.uiv-checkbox-group input[type="checkbox"] {
+  appearance: none;
+  outline: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  aspect-ratio: 1;
+  padding: 0.2rem;
+  background: transparent;
+  border: 1px solid var(--_clr-current);
+  border-radius: 6px;
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+  transition: border-color 150ms ease-in-out;
+}
+.uiv-checkbox-group input[type="checkbox"]::after {
+  content: "\2714";
+  opacity: 0;
+  transition: opacity 150ms ease-in-out;
+  color: var(--_clr-checked);
+  font-size: 13px;
+}
+.uiv-checkbox-group label:hover,
+.uiv-checkbox-group input[type="checkbox"]:hover {
+  border-color: var(--_clr-hover);
+  color: var(--_clr-hover);
+}
+.uiv-checkbox-group input[type="checkbox"]:checked {
+  border-color: var(--_clr-checked);
+}
+.uiv-checkbox-group input[type="checkbox"]:checked::after {
+  opacity: 1;
+}
+
+/* Standalone checkbox used to drive mood / language selection */
+.uiv-select-checkbox {
+  appearance: none;
+  outline: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  padding: 0.25rem;
+  background: transparent;
+  border: 1px solid var(--ink-soft);
+  border-radius: 6px;
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+  transition: border-color 150ms ease-in-out;
+}
+.uiv-select-checkbox::after {
+  content: "\2714";
+  opacity: 0;
+  transition: opacity 150ms ease-in-out;
+  color: var(--ink);
+  font-size: 14px;
+}
+.uiv-select-checkbox:checked::after {
+  opacity: 1;
+}
+
+.uiv-select-card {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.uiv-select-card:has(.uiv-select-checkbox:checked) {
+  box-shadow: inset 3px 3px 8px var(--shadow-dark), inset -3px -3px 8px var(--shadow-light);
+}
+.uiv-select-card:has(.uiv-select-checkbox:checked) .uiv-select-checkbox {
+  border-color: var(--ink);
+}
+
+.uiv-select-pill {
+  --pill-color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--clay-surface);
+  box-shadow: 4px 4px 10px var(--shadow-dark), -4px -4px 10px var(--shadow-light);
+  transition: color 0.15s ease;
+}
+.uiv-select-pill .uiv-select-checkbox {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-color: var(--pill-color);
+}
+.uiv-select-pill .uiv-select-checkbox::after {
+  color: var(--pill-color);
+  font-size: 11px;
+}
+.uiv-select-pill:has(.uiv-select-checkbox:checked) {
+  color: var(--pill-color);
+  box-shadow: inset 3px 3px 8px var(--shadow-dark), inset -3px -3px 8px var(--shadow-light);
+}
