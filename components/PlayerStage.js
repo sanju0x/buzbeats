@@ -96,6 +96,23 @@ export default function PlayerStage({ language, mood, onBack }) {
     return (current + 1) % len;
   }, []);
 
+  const loadTrack = useCallback(
+    (i) => {
+      const audio = audioRef.current;
+      if (!audio || !queue[i]?.streamUrl) return;
+      indexRef.current = i;
+      setIndex(i);
+      setProgress(0);
+      audio.src = queue[i].streamUrl;
+      audio.volume = volume;
+      audio.load();
+      audio.play().catch((err) => {
+        setErrorDetail(`Could not start playback: ${err.message}`);
+      });
+    },
+    [queue, volume]
+  );
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -126,6 +143,18 @@ export default function PlayerStage({ language, mood, onBack }) {
     };
     const onTimeUpdate = () => setProgress(audio.currentTime);
     const onDurationChange = () => setDuration(audio.duration || 0);
+    const onError = () => {
+      const code = audio.error?.code;
+      setErrorDetail(
+        `Playback failed for "${queue[indexRef.current]?.title || "track"}" (media error ${code || "unknown"})`
+      );
+      if (queue.length > 1) {
+        const next = pickNext(queue.length, indexRef.current);
+        loadTrack(next);
+      } else {
+        setStatus("error");
+      }
+    };
 
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
@@ -309,7 +338,6 @@ export default function PlayerStage({ language, mood, onBack }) {
           </span>
         </div>
 
-        {/* Uiverse.io Spotify-style mini player card, by Angek-Dev */}
         <div className="uiv-card">
           <div className="uiv-top">
             <div className="uiv-pfp" style={{
@@ -401,6 +429,12 @@ export default function PlayerStage({ language, mood, onBack }) {
             Repeat
           </label>
         </div>
+
+        {errorDetail && (
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--mood-sad)", textAlign: "center" }}>
+            {errorDetail}
+          </p>
+        )}
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
           {queue.map((t, i) => (

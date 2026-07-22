@@ -32,8 +32,9 @@ export async function GET(request) {
     });
 
     if (!upstreamRes.ok) {
+      const body = await upstreamRes.text();
       return new Response(
-        `Lavalink stream error: ${upstreamRes.status} ${upstreamRes.statusText}`,
+        `Lavalink stream error: ${upstreamRes.status} ${upstreamRes.statusText} ${body}`,
         { status: upstreamRes.status }
       );
     }
