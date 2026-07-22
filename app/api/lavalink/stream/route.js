@@ -1,6 +1,9 @@
 import { getNodeRestConfig } from "@/lib/lavalinkClient";
 import { serverEnv } from "@/lib/serverEnv";
 
+const BROWSER_SAFE_AUDIO_TYPE = "audio/mpeg";
+const UNSAFE_AUDIO_TYPES = ["application/json", "text/plain", "text/html"];
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const encoded = searchParams.get("encoded");
@@ -16,10 +19,15 @@ export async function GET(request) {
 
   const { base, authorization } = getNodeRestConfig();
   const upstream = `${base}/v4/trackstream?encodedTrack=${encodeURIComponent(encoded)}`;
+  const range = request.headers.get("range");
 
   try {
     const upstreamRes = await fetch(upstream, {
-      headers: { Authorization: authorization },
+      headers: {
+        Authorization: authorization,
+        Accept: "audio/mpeg,audio/*;q=0.9,*/*;q=0.8",
+        ...(range ? { Range: range } : {}),
+      },
       cache: "no-store",
     });
 
@@ -30,14 +38,23 @@ export async function GET(request) {
       );
     }
 
+    const upstreamType = upstreamRes.headers.get("content-type") || "";
     const headers = new Headers();
-    const contentType = upstreamRes.headers.get("content-type");
-    if (contentType) headers.set("content-type", contentType);
-    const contentLength = upstreamRes.headers.get("content-length");
-    if (contentLength) headers.set("content-length", contentLength);
+    headers.set(
+      "content-type",
+      upstreamType && !UNSAFE_AUDIO_TYPES.some((type) => upstreamType.startsWith(type))
+        ? upstreamType
+        : BROWSER_SAFE_AUDIO_TYPE
+    );
+    headers.set("accept-ranges", upstreamRes.headers.get("accept-ranges") || "bytes");
     headers.set("cache-control", "no-store");
 
-    return new Response(upstreamRes.body, { status: 200, headers });
+    for (const header of ["content-length", "content-range"]) {
+      const value = upstreamRes.headers.get(header);
+      if (value) headers.set(header, value);
+    }
+
+    return new Response(upstreamRes.body, { status: upstreamRes.status, headers });
   } catch (err) {
     return new Response(`Stream proxy error: ${err.message}`, { status: 502 });
   }
