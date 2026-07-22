@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { searchTracks, streamUrl } from "@/lib/lavalinkClient";
+import { searchTracksWithFallback, streamUrl } from "@/lib/lavalinkClient";
 import { serverEnv } from "@/lib/serverEnv";
 import { saveRadioSession } from "@/lib/supabaseServer";
 
@@ -70,7 +70,7 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
   for (const suggestion of suggestions) {
     const query = `${suggestion.title} ${suggestion.artist}`;
     try {
-      const results = await searchTracks(query, "ytsearch");
+      const results = await searchTracksWithFallback(query);
       const best = results[0];
       if (best) {
         resolved.push({
