@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { searchTracksWithFallback, streamUrl } from "@/lib/lavalinkClient";
+import { searchTracks, streamUrl } from "@/lib/lavalinkClient";
 import { serverEnv } from "@/lib/serverEnv";
 import { saveRadioSession } from "@/lib/supabaseServer";
 
@@ -31,6 +31,7 @@ export async function POST(request) {
   const moodBrief = MOOD_BRIEF[mood] || MOOD_BRIEF.feelgood;
 
   let suggestions = FALLBACK_TRACKS[mood] || FALLBACK_TRACKS.feelgood;
+  let usedGemini = false;
 
   if (env.GEMINI_API_KEY) {
     const prompt = `You are a music-programming DJ for a ${languageLabel}-speaking café/restaurant.
@@ -51,7 +52,21 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
       const data = await res.json();
       const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
       const cleaned = raw.replace(/```json|```/g, "").trim();
-      suggestions = JSON.parse(cleaned);
+      const parsed = JSON.parse(cleaned);
+
+      // Only accept Gemini's output if it's actually a usable, non-empty list.
+      // Otherwise silently keep the fallback so we never end up with zero suggestions.
+      const isUsable =
+        Array.isArray(parsed) &&
+        parsed.length > 0 &&
+        parsed.every((t) => t && typeof t.title === "string" && typeof t.artist === "string" && t.title.trim() && t.artist.trim());
+
+      if (isUsable) {
+        suggestions = parsed;
+        usedGemini = true;
+      } else {
+        console.warn("[recommend] Gemini returned no usable suggestions, using fallback list");
+      }
     } catch (err) {
       console.error("[recommend] Gemini failed, using fallback:", err.message);
     }
@@ -59,7 +74,7 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
 
   if (!env.LAVALINK_HOST || !env.LAVALINK_PASSWORD) {
     const tracks = suggestions.map((s) => ({ ...s, streamUrl: null, artworkUrl: null }));
-    await persistSession({ session, language, mood, tracks, source: env.GEMINI_API_KEY ? "gemini" : "fallback" });
+    await persistSession({ session, language, mood, tracks, source: usedGemini ? "gemini" : "fallback" });
     return NextResponse.json({
       tracks,
       error: "lavalink_not_configured",
@@ -70,7 +85,7 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
   for (const suggestion of suggestions) {
     const query = `${suggestion.title} ${suggestion.artist}`;
     try {
-      const results = await searchTracksWithFallback(query);
+      const results = await searchTracks(query, "ytsearch");
       const best = results[0];
       if (best) {
         resolved.push({
@@ -90,7 +105,7 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
 
   if (resolved.length === 0) {
     const tracks = suggestions.map((s) => ({ ...s, streamUrl: null }));
-    await persistSession({ session, language, mood, tracks, source: env.GEMINI_API_KEY ? "gemini" : "fallback" });
+    await persistSession({ session, language, mood, tracks, source: usedGemini ? "gemini" : "fallback" });
     return NextResponse.json({
       tracks,
       error: "lavalink_search_returned_nothing",
@@ -102,7 +117,7 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
     language,
     mood,
     tracks: resolved,
-    source: env.GEMINI_API_KEY ? "gemini" : "fallback",
+    source: usedGemini ? "gemini" : "fallback",
   });
 
   return NextResponse.json({ tracks: resolved, sessionId });
