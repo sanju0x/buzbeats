@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { searchTracks, streamUrl } from "@/lib/lavalinkClient";
+import { searchTracksWithFallback, streamUrl } from "@/lib/lavalinkClient";
 import { serverEnv } from "@/lib/serverEnv";
 
 export async function POST(request) {
@@ -18,7 +18,8 @@ export async function POST(request) {
   }
 
   try {
-    const tracks = await searchTracks(query, source);
+    const sources = source === "ytsearch" ? ["ytsearch", "spsearch"] : [source];
+    const tracks = await searchTracksWithFallback(query, sources);
     return NextResponse.json({
       tracks: tracks.map((t) => ({
         ...t,
