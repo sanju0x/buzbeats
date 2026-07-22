@@ -201,7 +201,7 @@ export default function PlayerStage({ language, mood, onBack }) {
   if (status === "loading") {
     return (
       <LoadingStage
-        label={`Curating ${moodInfo.label.toLowerCase()} ${languageInfo.label} songs with Gemini…`}
+        label={`Curating ${moodInfo.label.toLowerCase()} ${languageInfo.label} songs with Grok AI…`}
       />
     );
   }
@@ -217,7 +217,7 @@ export default function PlayerStage({ language, mood, onBack }) {
           <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, marginTop: 6 }}>
             Set <code>LAVALINK_HOST</code>, <code>LAVALINK_PORT</code>, and{" "}
             <code>LAVALINK_PASSWORD</code> in <code>.env.local</code> and restart the
-            dev server. Gemini still picked these songs for the room:
+            dev server. Grok AI still picked these songs for the room:
           </p>
           <ul style={{ color: "var(--ink)", paddingLeft: 18, lineHeight: 2 }}>
             {queue.map((t, i) => (

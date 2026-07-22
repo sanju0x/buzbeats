@@ -18,7 +18,8 @@ npm run dev
 | `GOOGLE_CLIENT_SECRET` | Google sign-in |
 | `NEXTAUTH_SECRET` | NextAuth sessions |
 | `NEXTAUTH_URL` | NextAuth callback URLs |
-| `GEMINI_API_KEY` | AI recommendations |
+| `XAI_API_KEY` | AI recommendations |
+| `XAI_MODEL` | Optional Grok model override (defaults to `grok-4.5`) |
 | `LAVALINK_HOST` | Audio search and streaming |
 | `LAVALINK_PORT` | Audio search and streaming |
 | `LAVALINK_PASSWORD` | Audio search and streaming |
