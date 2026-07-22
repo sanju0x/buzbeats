@@ -23,6 +23,7 @@ export default function PlayerStage({ language, mood, onBack }) {
   const indexRef = useRef(0);
   const shuffleRef = useRef(false);
   const repeatRef = useRef(false);
+  const failedTracksRef = useRef(new Set());
 
   useEffect(() => {
     shuffleRef.current = shuffle;
@@ -38,6 +39,7 @@ export default function PlayerStage({ language, mood, onBack }) {
     setQueue([]);
     setIndex(0);
     indexRef.current = 0;
+    failedTracksRef.current.clear();
 
     fetch("/api/recommend", {
       method: "POST",
@@ -119,11 +121,25 @@ export default function PlayerStage({ language, mood, onBack }) {
     const onPause = () => setIsPlaying(false);
     const onEnded = () => {
       if (repeatRef.current) {
-        loadTrack(indexRef.current);
+        loadTrack(indexRef.current, { autoplay: true });
         return;
       }
       const next = pickNext(queue.length, indexRef.current);
-      loadTrack(next);
+      loadTrack(next, { autoplay: true });
+    };
+    const onError = () => {
+      const failedIndex = indexRef.current;
+      failedTracksRef.current.add(failedIndex);
+      const message = audio.error?.message || "Failed to load because no supported source was found.";
+
+      if (failedTracksRef.current.size < queue.length) {
+        setErrorDetail(`Skipping ${queue[failedIndex]?.title || "track"}: ${message}`);
+        loadTrack(pickNext(queue.length, failedIndex), { autoplay: isPlaying });
+        return;
+      }
+
+      setStatus("error");
+      setErrorDetail(`Could not start playback: ${message}`);
     };
     const onTimeUpdate = () => setProgress(audio.currentTime);
     const onDurationChange = () => setDuration(audio.duration || 0);
@@ -155,28 +171,57 @@ export default function PlayerStage({ language, mood, onBack }) {
       audio.removeEventListener("durationchange", onDurationChange);
       audio.removeEventListener("error", onError);
     };
-  }, [queue, pickNext, loadTrack]);
+  }, [queue, pickNext, isPlaying]);
 
   useEffect(() => {
     if (status === "ready" && queue.length > 0) {
-      loadTrack(0);
+      loadTrack(0, { autoplay: false });
     }
-  }, [status, queue, loadTrack]);
+  }, [status]);
+
+  const loadTrack = useCallback(
+    (i, { autoplay = true } = {}) => {
+      const audio = audioRef.current;
+      if (!audio || !queue[i]?.streamUrl) return;
+      indexRef.current = i;
+      setIndex(i);
+      setProgress(0);
+      audio.src = queue[i].streamUrl;
+      audio.volume = volume;
+      audio.load();
+
+      if (autoplay) {
+        audio.play().catch((err) => {
+          setIsPlaying(false);
+          setErrorDetail(`Could not start playback: ${err.message}`);
+        });
+      }
+    },
+    [queue, volume]
+  );
 
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    isPlaying ? audio.pause() : audio.play();
+    if (isPlaying) {
+      audio.pause();
+      return;
+    }
+
+    audio.play().catch((err) => {
+      setIsPlaying(false);
+      setErrorDetail(`Could not start playback: ${err.message}`);
+    });
   };
 
   const skip = () => {
     const next = pickNext(queue.length, index);
-    loadTrack(next);
+    loadTrack(next, { autoplay: true });
   };
 
   const prev = () => {
     const p = (index - 1 + queue.length) % queue.length;
-    loadTrack(p);
+    loadTrack(p, { autoplay: true });
   };
 
   const stop = () => {
@@ -366,6 +411,13 @@ export default function PlayerStage({ language, mood, onBack }) {
           <p className="uiv-timetext uiv-time_now">{fmt(progress)}</p>
           <p className="uiv-timetext uiv-time_full">{fmt(duration)}</p>
         </div>
+
+        {/* Uiverse.io checkbox styling by cbolson, wired to real shuffle/repeat */}
+        {errorDetail && (
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-soft)", textAlign: "center", margin: 0 }}>
+            {errorDetail}
+          </p>
+        )}
 
         <div className="uiv-checkbox-group">
           <label>
