@@ -18,8 +18,8 @@ npm run dev
 | `GOOGLE_CLIENT_SECRET` | Google sign-in |
 | `NEXTAUTH_SECRET` | NextAuth sessions |
 | `NEXTAUTH_URL` | NextAuth callback URLs |
-| `GEMINI_API_KEY` | AI recommendations |
-| `GEMINI_MODEL` | Optional Gemini model override (defaults to `gemini-1.5-flash`) |
+| `GEMINI_API_KEY` | AI recommendations (also accepts `GOOGLE_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`) |
+| `GEMINI_MODEL` | Optional Gemini model override (defaults to `gemini-2.5-flash`) |
 | `AUDIUS_APP_NAME` | Optional Audius API application name (defaults to `buzbeats`) |
 | `SUPABASE_URL` | Database persistence |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only database writes |

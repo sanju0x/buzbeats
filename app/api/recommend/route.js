@@ -6,7 +6,7 @@ import { serverEnv } from "@/lib/serverEnv";
 import { saveRadioSession } from "@/lib/supabaseServer";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 
 const MOOD_BRIEF = {
   romantic: "warm, intimate, slow-tempo love songs",
@@ -32,7 +32,9 @@ export async function POST(request) {
 
   let suggestions = [];
 
-  if (!env.GEMINI_API_KEY) {
+  const geminiApiKey = env.GEMINI_API_KEY || env.GOOGLE_API_KEY || env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+  if (!geminiApiKey) {
     return NextResponse.json(
       { tracks: [], error: "ai_not_configured", message: "Set GEMINI_API_KEY to generate AI recommendations." },
       { status: 503 }
@@ -47,13 +49,13 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
 
   try {
     const model = env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-    const url = `${GEMINI_API_BASE}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+    const url = `${GEMINI_API_BASE}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(geminiApiKey)}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.9, responseMimeType: "application/json" },
+        generationConfig: { temperature: 0.9, maxOutputTokens: 1024 },
       }),
     });
 
@@ -63,19 +65,13 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
     }
 
     const data = await res.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "[]";
-    const cleaned = raw.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
-    const isUsable =
-      Array.isArray(parsed) &&
-      parsed.length > 0 &&
-      parsed.every((t) => t && typeof t.title === "string" && typeof t.artist === "string" && t.title.trim() && t.artist.trim());
+    suggestions = parseGeminiSuggestions(data);
 
-    if (!isUsable) {
-      throw new Error("Gemini returned no usable suggestions");
+    if (suggestions.length === 0) {
+      const blockReason = data?.promptFeedback?.blockReason;
+      const finishReason = data?.candidates?.[0]?.finishReason;
+      throw new Error(`Gemini returned no usable suggestions${blockReason ? ` (blocked: ${blockReason})` : ""}${finishReason ? ` (finish: ${finishReason})` : ""}`);
     }
-
-    suggestions = parsed;
   } catch (err) {
     console.error("[recommend] Gemini failed:", err.message);
     return NextResponse.json(
@@ -103,7 +99,7 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
   }
 
   if (resolved.length === 0) {
-    await persistSession({ session, language, mood, tracks: [], source: "grok" });
+    await persistSession({ session, language, mood, tracks: [], source: "gemini" });
     return NextResponse.json(
       { tracks: [], error: "audius_search_returned_nothing", message: "No Audius streams matched the AI recommendations." },
       { status: 404 }
@@ -119,6 +115,29 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
   });
 
   return NextResponse.json({ tracks: resolved, sessionId });
+}
+
+function parseGeminiSuggestions(data) {
+  const raw = data?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
+  if (!raw) return [];
+
+  const cleaned = raw
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  const jsonStart = cleaned.indexOf("[");
+  const jsonEnd = cleaned.lastIndexOf("]");
+  const jsonText = jsonStart >= 0 && jsonEnd > jsonStart ? cleaned.slice(jsonStart, jsonEnd + 1) : cleaned;
+  const parsed = JSON.parse(jsonText);
+  const tracks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.tracks) ? parsed.tracks : [];
+
+  return tracks
+    .map((track) => ({
+      title: typeof track?.title === "string" ? track.title.trim() : "",
+      artist: typeof track?.artist === "string" ? track.artist.trim() : "",
+    }))
+    .filter((track) => track.title && track.artist);
 }
 
 async function persistSession({ session, language, mood, tracks, source }) {
