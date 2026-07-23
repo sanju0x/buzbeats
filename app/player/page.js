@@ -10,6 +10,8 @@ export default function PlayerPage() {
   const [prefs, setPrefs] = useState({ language: "english", mood: "feelgood" });
 
   useEffect(() => {
+    localStorage.removeItem("buzbeats-mini-player");
+    window.dispatchEvent(new Event("buzbeats-mini-player"));
     setPrefs({
       language: localStorage.getItem("buzbeats-language") || "english",
       mood: localStorage.getItem("buzbeats-mood") || "feelgood",

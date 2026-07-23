@@ -28,13 +28,40 @@ export default function MiniPlayerPopup() {
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !track?.streamUrl) return;
+    if (!audio) return;
+
+    if (pathname === "/player") {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      setIsPlaying(false);
+      return;
+    }
+
+    if (!track?.streamUrl) return;
     audio.src = track.streamUrl;
     audio.currentTime = track.currentTime || 0;
     if (track.wasPlaying !== false) {
       audio.play().catch(() => setIsPlaying(false));
     }
-  }, [track]);
+  }, [pathname, track]);
+
+  const closeMiniPlayer = () => {
+    const audio = audioRef.current;
+    audio?.pause();
+    if (audio) {
+      audio.removeAttribute("src");
+      audio.load();
+    }
+    localStorage.removeItem("buzbeats-mini-player");
+    setTrack(null);
+    setIsPlaying(false);
+  };
+
+  const openFullPlayer = () => {
+    closeMiniPlayer();
+    router.push("/player");
+  };
 
   if (!track || pathname === "/player") return null;
 
@@ -95,6 +122,14 @@ export default function MiniPlayerPopup() {
         onEnded={() => setIsPlaying(false)}
       />
       <button
+        className="mini-close"
+        type="button"
+        aria-label="Close mini player"
+        onClick={closeMiniPlayer}
+      >
+        ×
+      </button>
+      <button
         className={`mini-art${isPlaying ? " is-playing" : ""}`}
         type="button"
         aria-label={isPlaying ? "Pause mini player" : "Play mini player"}
@@ -103,7 +138,7 @@ export default function MiniPlayerPopup() {
       >
         <span>{isPlaying ? "Ⅱ" : "▶"}</span>
       </button>
-      <button className="mini-open" type="button" onClick={() => router.push("/player")}>Open</button>
+      <button className="mini-open" type="button" onClick={openFullPlayer}>Open</button>
     </div>
   );
 }
