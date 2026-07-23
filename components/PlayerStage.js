@@ -210,11 +210,16 @@ export default function PlayerStage({ language, mood, onBack }) {
   const nextQueue = queue.length > 1 ? queue.slice(index + 1).concat(queue.slice(0, index)) : [];
   const handleBack = () => {
     const audio = audioRef.current;
+    const wasPlaying = !!audio && !audio.paused;
+    const currentTime = audio?.currentTime || 0;
     audio?.pause();
     onBack?.({
       title: current?.title,
       artist: current?.artist,
       artworkUrl: current?.artworkUrl,
+      streamUrl: current?.streamUrl,
+      currentTime,
+      wasPlaying,
       language,
       mood,
     });
