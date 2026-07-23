@@ -211,7 +211,7 @@ export default function PlayerStage({ language, mood, onBack }) {
   if (status === "loading") {
     return (
       <LoadingStage
-        label={`Curating ${moodInfo.label.toLowerCase()} ${languageInfo.label} songs with Gemini…`}
+        label={`Loading ${moodInfo.label.toLowerCase()} ${languageInfo.label} songs…`}
       />
     );
   }
@@ -225,7 +225,7 @@ export default function PlayerStage({ language, mood, onBack }) {
           </button>
           <p className="eyebrow" style={{ color: "var(--mood-sad)" }}>No playable streams</p>
           <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, marginTop: 6 }}>
-            Audius did not return playable streams for the AI recommendations:
+            Audius did not return playable streams for the fallback playlist:
           </p>
           <ul style={{ color: "var(--ink)", paddingLeft: 18, lineHeight: 2 }}>
             {queue.map((t, i) => (
