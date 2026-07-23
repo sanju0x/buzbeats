@@ -264,3 +264,120 @@ button {
   color: var(--pill-color);
   box-shadow: inset 3px 3px 8px var(--shadow-dark), inset -3px -3px 8px var(--shadow-light);
 }
+
+.demo-timer {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 30;
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: #161616;
+  background: #00ff7f;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+.mini-player-pop {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: 25;
+  width: min(440px, calc(100% - 28px));
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  border: 0;
+  border-radius: 24px;
+  padding: 12px 14px;
+  color: #fff;
+  background: rgba(21, 21, 21, 0.94);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+  text-align: left;
+}
+
+.mini-art {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1db954, #313131);
+  background-position: center;
+  background-size: cover;
+}
+
+.mini-player-pop strong,
+.mini-player-pop small {
+  display: block;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-player-pop small {
+  margin-top: 4px;
+  color: #bdbdbd;
+}
+
+.mini-pill {
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: #161616;
+  background: #00ff7f;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.cookie-pop {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 40;
+  width: min(390px, calc(100% - 28px));
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 18px;
+}
+
+.cookie-check {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--mood-lofi);
+  font-weight: 900;
+}
+
+.cookie-pop p {
+  margin: 5px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cookie-accept {
+  grid-column: 1 / -1;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 16px;
+  color: #fff;
+  background: var(--ink);
+  font-weight: 800;
+}
+
+@media (max-width: 560px) {
+  .cookie-pop {
+    right: 14px;
+    bottom: 88px;
+  }
+}

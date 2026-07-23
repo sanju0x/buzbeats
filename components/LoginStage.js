@@ -8,8 +8,8 @@ export default function LoginStage({ onDemoContinue }) {
       <div id="uiv-login-form">
         <div id="uiv-form-body">
           <div id="uiv-welcome-lines">
-            <div id="uiv-welcome-line-1">Nook Radio</div>
-            <div id="uiv-welcome-line-2">One dial for the room&rsquo;s mood</div>
+            <div id="uiv-welcome-line-1">BuzBeats</div>
+            <div id="uiv-welcome-line-2">Sign in, sign up, or try a 60s demo</div>
           </div>
 
           <div id="uiv-submit-button-cvr">
@@ -19,14 +19,22 @@ export default function LoginStage({ onDemoContinue }) {
               onClick={() => signIn("google")}
             >
               <GoogleG />
-              Continue with Google
+              Log in with Google
             </button>
-          </div>
-
-          <div id="uiv-forgot-pass">
-            <a href="#" onClick={(e) => { e.preventDefault(); onDemoContinue?.(); }}>
-              Skip sign-in and try the demo
-            </a>
+            <button
+              className="uiv-secondary-button"
+              type="button"
+              onClick={() => signIn("google")}
+            >
+              Create free account
+            </button>
+            <button
+              className="uiv-demo-button"
+              type="button"
+              onClick={() => onDemoContinue?.()}
+            >
+              Try 60s demo
+            </button>
           </div>
 
           <div id="uiv-bar" />
@@ -39,7 +47,7 @@ export default function LoginStage({ onDemoContinue }) {
           display: grid;
           place-items: center;
           width: 300px;
-          height: 340px;
+          height: 410px;
           padding: 25px;
           background-color: #161616;
           box-shadow: 0px 15px 60px #00ff7f;
@@ -53,7 +61,7 @@ export default function LoginStage({ onDemoContinue }) {
           right: 25px;
           left: 25px;
           width: 230px;
-          margin: -110px auto 0 auto;
+          margin: -145px auto 0 auto;
         }
 
         #uiv-welcome-lines {
@@ -101,6 +109,31 @@ export default function LoginStage({ onDemoContinue }) {
         #uiv-submit-button:hover {
           background-color: #00ff7f;
           color: #161616;
+        }
+
+        .uiv-secondary-button,
+        .uiv-demo-button {
+          width: 100%;
+          margin-top: 12px;
+          padding: 13px;
+          border-radius: 8px;
+          font-weight: 700;
+          border: 1px solid #3d3d3d;
+          color: #fff;
+          background: #222;
+          transition: all 0.2s ease;
+        }
+
+        .uiv-demo-button {
+          color: #161616;
+          background: #00ff7f;
+          border-color: #00ff7f;
+        }
+
+        .uiv-secondary-button:hover,
+        .uiv-demo-button:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 22px rgba(0, 255, 127, 0.2);
         }
 
         #uiv-forgot-pass {
