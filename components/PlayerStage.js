@@ -50,23 +50,17 @@ export default function PlayerStage({ language, mood, onBack }) {
 
         const { tracks, error } = data;
 
-        if (error === "lavalink_not_configured") {
-          setQueue(tracks || []);
-          setStatus("no-lavalink");
-          return;
-        }
-
         if (!tracks?.length) {
           setStatus("error");
-          setErrorDetail("No tracks returned from the server.");
+          setErrorDetail(data.message || error || "No tracks returned from the server.");
           return;
         }
 
         const playable = tracks.filter((t) => t.streamUrl);
         if (playable.length === 0) {
           setQueue(tracks);
-          setStatus("no-lavalink");
-          setErrorDetail(error || null);
+          setStatus("unplayable");
+          setErrorDetail(data.message || error || null);
           return;
         }
 
@@ -217,23 +211,21 @@ export default function PlayerStage({ language, mood, onBack }) {
   if (status === "loading") {
     return (
       <LoadingStage
-        label={`Curating ${moodInfo.label.toLowerCase()} ${languageInfo.label} songs with Grok AI…`}
+        label={`Loading ${moodInfo.label.toLowerCase()} ${languageInfo.label} songs…`}
       />
     );
   }
 
-  if (status === "no-lavalink") {
+  if (status === "unplayable") {
     return (
       <div className="stage">
         <div className="clay-raised" style={{ width: "min(480px, 100%)", padding: "36px 30px" }}>
           <button onClick={onBack} className="eyebrow" style={{ background: "none", border: "none", padding: "0 0 18px" }}>
             ← back
           </button>
-          <p className="eyebrow" style={{ color: "var(--mood-sad)" }}>Lavalink not connected</p>
+          <p className="eyebrow" style={{ color: "var(--mood-sad)" }}>No playable streams</p>
           <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, marginTop: 6 }}>
-            Set <code>LAVALINK_HOST</code>, <code>LAVALINK_PORT</code>, and{" "}
-            <code>LAVALINK_PASSWORD</code> in <code>.env.local</code> and restart the
-            dev server. Grok AI still picked these songs for the room:
+            Audius did not return playable streams for the fallback playlist:
           </p>
           <ul style={{ color: "var(--ink)", paddingLeft: 18, lineHeight: 2 }}>
             {queue.map((t, i) => (
