@@ -55,6 +55,29 @@ function fallbackTracksFor(language, mood, exclude) {
   return filtered.length ? filtered : moodTracks;
 }
 
+function parseGeminiSuggestions(data) {
+  const raw = data?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
+  if (!raw) return [];
+
+  const cleaned = raw
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  const jsonStart = cleaned.indexOf("[");
+  const jsonEnd = cleaned.lastIndexOf("]");
+  const jsonText = jsonStart >= 0 && jsonEnd > jsonStart ? cleaned.slice(jsonStart, jsonEnd + 1) : cleaned;
+  const parsed = JSON.parse(jsonText);
+  const tracks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.tracks) ? parsed.tracks : [];
+
+  return tracks
+    .map((track) => ({
+      title: typeof track?.title === "string" ? track.title.trim() : "",
+      artist: typeof track?.artist === "string" ? track.artist.trim() : "",
+    }))
+    .filter((track) => track.title && track.artist);
+}
+
 async function persistSession({ session, language, mood, tracks, source }) {
   try {
     return await saveRadioSession({
