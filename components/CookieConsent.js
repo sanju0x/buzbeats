@@ -6,13 +6,8 @@ export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    setVisible(localStorage.getItem("nook-cookie-ok") !== "yes");
+    setVisible(true);
   }, []);
-
-  const accept = () => {
-    localStorage.setItem("nook-cookie-ok", "yes");
-    setVisible(false);
-  };
 
   if (!visible) return null;
 
@@ -20,12 +15,17 @@ export default function CookieConsent() {
     <div className="cookie-pop clay-raised" role="dialog" aria-live="polite" aria-label="Cookie notice">
       <div className="cookie-check" aria-hidden="true">✓</div>
       <div>
-        <strong>Cookies make the demo smoother.</strong>
-        <p>We use cookies to remember your choices and keep the player experience consistent.</p>
+        <strong>Cookie choices</strong>
+        <p>Accept cookies for saved preferences, or decline and we will ask again next time.</p>
       </div>
-      <button type="button" onClick={accept} className="cookie-accept">
-        Accept cookies
-      </button>
+      <div className="cookie-actions">
+        <button type="button" onClick={() => setVisible(false)} className="cookie-decline">
+          Decline
+        </button>
+        <button type="button" onClick={() => setVisible(false)} className="cookie-accept">
+          Accept
+        </button>
+      </div>
     </div>
   );
 }

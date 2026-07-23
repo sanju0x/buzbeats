@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import LoginStage from "@/components/LoginStage";
 import LanguageStage from "@/components/LanguageStage";
@@ -17,6 +17,8 @@ export default function Home() {
   const [demoEndsAt, setDemoEndsAt] = useState(null);
   const [demoSeconds, setDemoSeconds] = useState(60);
   const [miniPlayer, setMiniPlayer] = useState(null);
+  const [miniPosition, setMiniPosition] = useState({ x: 18, y: 18 });
+  const dragRef = useRef(null);
 
   const signedIn = !!session || demo;
 
@@ -55,6 +57,38 @@ export default function Home() {
     setPage("language");
   };
 
+  const startMiniDrag = (event) => {
+    if (!miniPlayer) return;
+    const point = event.touches?.[0] || event;
+    dragRef.current = {
+      startX: point.clientX,
+      startY: point.clientY,
+      originX: miniPosition.x,
+      originY: miniPosition.y,
+      moved: false,
+    };
+  };
+
+  const moveMiniDrag = (event) => {
+    if (!dragRef.current) return;
+    const point = event.touches?.[0] || event;
+    const nextX = Math.max(8, dragRef.current.originX - (point.clientX - dragRef.current.startX));
+    const nextY = Math.max(8, dragRef.current.originY - (point.clientY - dragRef.current.startY));
+    if (Math.abs(point.clientX - dragRef.current.startX) > 4 || Math.abs(point.clientY - dragRef.current.startY) > 4) {
+      dragRef.current.moved = true;
+    }
+    setMiniPosition({ x: nextX, y: nextY });
+  };
+
+  const endMiniDrag = () => {
+    dragRef.current = null;
+  };
+
+  const toggleMiniPlayback = () => {
+    if (dragRef.current?.moved) return;
+    setMiniPlayer((player) => player ? { ...player, isPlaying: !player.isPlaying } : player);
+  };
+
   let content;
 
   if (!signedIn || page === "landing") {
@@ -69,7 +103,7 @@ export default function Home() {
         language={language}
         mood={mood}
         onBack={(snapshot) => {
-          setMiniPlayer(snapshot);
+          setMiniPlayer({ ...snapshot, isPlaying: false });
           setPage("mood");
         }}
       />
@@ -81,17 +115,28 @@ export default function Home() {
       {content}
       {demoBadge}
       {miniPlayer && page !== "player" && (
-        <button className="mini-player-pop" type="button" onClick={() => setPage("player")}>
-          <span
-            className="mini-art"
+        <div
+          className="mini-player-pop"
+          style={{ right: miniPosition.x, bottom: miniPosition.y }}
+          onMouseDown={startMiniDrag}
+          onMouseMove={moveMiniDrag}
+          onMouseUp={endMiniDrag}
+          onMouseLeave={endMiniDrag}
+          onTouchStart={startMiniDrag}
+          onTouchMove={moveMiniDrag}
+          onTouchEnd={endMiniDrag}
+        >
+          <button
+            className={`mini-art${miniPlayer.isPlaying ? " is-playing" : ""}`}
+            type="button"
+            aria-label={miniPlayer.isPlaying ? "Pause preview" : "Play preview"}
+            onClick={toggleMiniPlayback}
             style={{ backgroundImage: miniPlayer.artworkUrl ? `url(${miniPlayer.artworkUrl})` : undefined }}
-          />
-          <span>
-            <strong>{miniPlayer.title || "Radio paused"}</strong>
-            <small>{miniPlayer.artist || "Tap to reopen player"}</small>
-          </span>
-          <span className="mini-pill">Open</span>
-        </button>
+          >
+            <span>{miniPlayer.isPlaying ? "Ⅱ" : "▶"}</span>
+          </button>
+          <button className="mini-open" type="button" onClick={() => setPage("player")}>Open</button>
+        </div>
       )}
       <CookieConsent />
     </>

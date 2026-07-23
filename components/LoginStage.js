@@ -1,41 +1,48 @@
 "use client";
 
+import { useState } from "react";
 import { signIn } from "next-auth/react";
 
 export default function LoginStage({ onDemoContinue }) {
+  const [showSignForm, setShowSignForm] = useState(false);
+
   return (
-    <div className="stage">
+    <div className="stage landing-stage">
       <div id="uiv-login-form">
         <div id="uiv-form-body">
           <div id="uiv-welcome-lines">
             <div id="uiv-welcome-line-1">BuzBeats</div>
-            <div id="uiv-welcome-line-2">Sign in, sign up, or try a 60s demo</div>
+            <div id="uiv-welcome-line-2">
+              {showSignForm ? "Redirect securely to continue" : "Mood radio for every room"}
+            </div>
           </div>
 
-          <div id="uiv-submit-button-cvr">
-            <button
-              id="uiv-submit-button"
-              type="button"
-              onClick={() => signIn("google")}
-            >
-              <GoogleG />
-              Log in with Google
-            </button>
-            <button
-              className="uiv-secondary-button"
-              type="button"
-              onClick={() => signIn("google")}
-            >
-              Create free account
-            </button>
-            <button
-              className="uiv-demo-button"
-              type="button"
-              onClick={() => onDemoContinue?.()}
-            >
-              Try 60s demo
-            </button>
-          </div>
+          {!showSignForm ? (
+            <div className="landing-actions">
+              <p className="landing-copy">
+                Pick a language, set the mood, and preview the player before creating an account.
+              </p>
+              <button className="uiv-demo-button" type="button" onClick={() => onDemoContinue?.()}>
+                Try 60s demo
+              </button>
+              <button id="uiv-submit-button" type="button" onClick={() => setShowSignForm(true)}>
+                Sign in / Sign up
+              </button>
+            </div>
+          ) : (
+            <div id="uiv-submit-button-cvr">
+              <button id="uiv-submit-button" type="button" onClick={() => signIn("google")}>
+                <GoogleG />
+                Continue with Google
+              </button>
+              <button className="uiv-secondary-button" type="button" onClick={() => signIn("google")}>
+                Create free account
+              </button>
+              <button className="uiv-back-button" type="button" onClick={() => setShowSignForm(false)}>
+                Back to demo landing
+              </button>
+            </div>
+          )}
 
           <div id="uiv-bar" />
         </div>
@@ -46,22 +53,18 @@ export default function LoginStage({ onDemoContinue }) {
           position: relative;
           display: grid;
           place-items: center;
-          width: 300px;
-          height: 410px;
+          width: min(360px, calc(100vw - 32px));
+          min-height: 430px;
           padding: 25px;
           background-color: #161616;
           box-shadow: 0px 15px 60px #00ff7f;
           outline: 1px solid #2b9962;
-          border-radius: 10px;
+          border-radius: 18px;
         }
 
         #uiv-form-body {
-          position: absolute;
-          top: 50%;
-          right: 25px;
-          left: 25px;
-          width: 230px;
-          margin: -145px auto 0 auto;
+          width: min(280px, 100%);
+          margin: 0 auto;
         }
 
         #uiv-welcome-lines {
@@ -72,7 +75,7 @@ export default function LoginStage({ onDemoContinue }) {
         #uiv-welcome-line-1 {
           color: #00ff7f;
           font-weight: 600;
-          font-size: 34px;
+          font-size: clamp(32px, 9vw, 44px);
           font-family: var(--font-display);
         }
 
@@ -82,8 +85,17 @@ export default function LoginStage({ onDemoContinue }) {
           margin-top: 10px;
         }
 
+        .landing-actions,
         #uiv-submit-button-cvr {
           margin-top: 34px;
+        }
+
+        .landing-copy {
+          color: #bfbfbf;
+          font-size: 14px;
+          line-height: 1.6;
+          margin: 0 0 18px;
+          text-align: center;
         }
 
         #uiv-submit-button {
@@ -96,7 +108,7 @@ export default function LoginStage({ onDemoContinue }) {
           background-color: transparent;
           font-weight: 600;
           font-size: 14px;
-          margin: 0;
+          margin: 12px 0 0;
           padding: 14px 13px 12px 13px;
           border: 0;
           outline: 1px solid #00ff7f;
@@ -112,7 +124,8 @@ export default function LoginStage({ onDemoContinue }) {
         }
 
         .uiv-secondary-button,
-        .uiv-demo-button {
+        .uiv-demo-button,
+        .uiv-back-button {
           width: 100%;
           margin-top: 12px;
           padding: 13px;
@@ -128,33 +141,25 @@ export default function LoginStage({ onDemoContinue }) {
           color: #161616;
           background: #00ff7f;
           border-color: #00ff7f;
+          font-size: 16px;
+        }
+
+        .uiv-back-button {
+          color: #9a9a9a;
+          background: transparent;
         }
 
         .uiv-secondary-button:hover,
-        .uiv-demo-button:hover {
+        .uiv-demo-button:hover,
+        .uiv-back-button:hover {
           transform: translateY(-1px);
           box-shadow: 0 8px 22px rgba(0, 255, 127, 0.2);
-        }
-
-        #uiv-forgot-pass {
-          text-align: center;
-          margin-top: 16px;
-        }
-
-        #uiv-forgot-pass a {
-          color: #868686;
-          font-size: 12px;
-          text-decoration: none;
-        }
-
-        #uiv-forgot-pass a:hover {
-          color: #00ff7f;
         }
 
         #uiv-bar {
           position: absolute;
           left: 50%;
-          bottom: -50px;
+          bottom: -35px;
           width: 28px;
           height: 8px;
           margin-left: -33px;
@@ -172,13 +177,8 @@ export default function LoginStage({ onDemoContinue }) {
           border-radius: 50%;
         }
 
-        #uiv-bar::before {
-          right: -20px;
-        }
-
-        #uiv-bar::after {
-          right: -38px;
-        }
+        #uiv-bar::before { right: -20px; }
+        #uiv-bar::after { right: -38px; }
       `}</style>
     </div>
   );
