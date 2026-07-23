@@ -103,7 +103,7 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
   }
 
   if (resolved.length === 0) {
-    await persistSession({ session, language, mood, tracks: [], source: "gemini" });
+    await persistSession({ session, language, mood, tracks: [], source: "grok" });
     return NextResponse.json(
       { tracks: [], error: "audius_search_returned_nothing", message: "No Audius streams matched the AI recommendations." },
       { status: 404 }
