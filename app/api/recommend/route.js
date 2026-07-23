@@ -5,8 +5,8 @@ import { searchTracks } from "@/lib/audiusClient";
 import { serverEnv } from "@/lib/serverEnv";
 import { saveRadioSession } from "@/lib/supabaseServer";
 
-const XAI_CHAT_COMPLETIONS_URL = "https://api.x.ai/v1/chat/completions";
-const DEFAULT_XAI_MODEL = "grok-4.5";
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
 
 const MOOD_BRIEF = {
   romantic: "warm, intimate, slow-tempo love songs",
@@ -32,9 +32,9 @@ export async function POST(request) {
 
   let suggestions = [];
 
-  if (!env.XAI_API_KEY) {
+  if (!env.GEMINI_API_KEY) {
     return NextResponse.json(
-      { tracks: [], error: "ai_not_configured", message: "Set XAI_API_KEY to generate AI recommendations." },
+      { tracks: [], error: "ai_not_configured", message: "Set GEMINI_API_KEY to generate AI recommendations." },
       { status: 503 }
     );
   }
@@ -46,26 +46,24 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
 [{"title": "song title", "artist": "artist name"}]`;
 
   try {
-    const res = await fetch(XAI_CHAT_COMPLETIONS_URL, {
+    const model = env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+    const url = `${GEMINI_API_BASE}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+    const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.XAI_API_KEY}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: env.XAI_MODEL || DEFAULT_XAI_MODEL,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.9,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, responseMimeType: "application/json" },
       }),
     });
 
     if (!res.ok) {
       const message = await res.text();
-      throw new Error(`xAI request failed with ${res.status}: ${message}`);
+      throw new Error(`Gemini request failed with ${res.status}: ${message}`);
     }
 
     const data = await res.json();
-    const raw = data?.choices?.[0]?.message?.content || "[]";
+    const raw = data?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "[]";
     const cleaned = raw.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(cleaned);
     const isUsable =
@@ -74,12 +72,12 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
       parsed.every((t) => t && typeof t.title === "string" && typeof t.artist === "string" && t.title.trim() && t.artist.trim());
 
     if (!isUsable) {
-      throw new Error("Grok AI returned no usable suggestions");
+      throw new Error("Gemini returned no usable suggestions");
     }
 
     suggestions = parsed;
   } catch (err) {
-    console.error("[recommend] Grok AI failed:", err.message);
+    console.error("[recommend] Gemini failed:", err.message);
     return NextResponse.json(
       { tracks: [], error: "ai_recommendations_failed", message: "AI recommendations could not be generated." },
       { status: 502 }
@@ -117,7 +115,7 @@ Reply with ONLY a JSON array, no prose, no markdown fences, in this exact shape:
     language,
     mood,
     tracks: resolved,
-    source: "grok",
+    source: "gemini",
   });
 
   return NextResponse.json({ tracks: resolved, sessionId });

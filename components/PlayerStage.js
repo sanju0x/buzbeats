@@ -211,7 +211,7 @@ export default function PlayerStage({ language, mood, onBack }) {
   if (status === "loading") {
     return (
       <LoadingStage
-        label={`Curating ${moodInfo.label.toLowerCase()} ${languageInfo.label} songs with Grok AI…`}
+        label={`Curating ${moodInfo.label.toLowerCase()} ${languageInfo.label} songs with Gemini…`}
       />
     );
   }
