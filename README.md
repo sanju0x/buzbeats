@@ -20,10 +20,7 @@ npm run dev
 | `NEXTAUTH_URL` | NextAuth callback URLs |
 | `XAI_API_KEY` | AI recommendations |
 | `XAI_MODEL` | Optional Grok model override (defaults to `grok-4.5`) |
-| `LAVALINK_HOST` | Audio search and streaming |
-| `LAVALINK_PORT` | Audio search and streaming |
-| `LAVALINK_PASSWORD` | Audio search and streaming |
-| `LAVALINK_SECURE` | HTTPS Lavalink nodes |
+| `AUDIUS_APP_NAME` | Optional Audius API application name (defaults to `buzbeats`) |
 | `SUPABASE_URL` | Database persistence |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only database writes |
 
@@ -38,13 +35,12 @@ app/
   page.js
   api/auth/[...nextauth]/
   api/recommend/
-  api/lavalink/search/
-  api/lavalink/stream/
+  api/audius/stream/[trackId]/
 components/
   LoginStage, LanguageStage, MoodStage, MoodDial, LoadingStage, PlayerStage
 lib/
   config.js
-  lavalinkClient.js
+  audiusClient.js
   serverEnv.js
   supabaseServer.js
 supabase/
