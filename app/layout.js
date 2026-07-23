@@ -2,9 +2,9 @@ import "./globals.css";
 import Providers from "./providers";
 
 export const metadata = {
-  title: "Nook Radio — AI radio for cafés & restaurants",
+  title: "Nook Radio — mood radio for cafés & restaurants",
   description:
-    "Pick a language, turn the mood dial, and let Grok AI curate a live radio stream for your space.",
+    "Pick a language, turn the mood dial, and play a mood-matched live radio stream for your space.",
 };
 
 export default function RootLayout({ children }) {

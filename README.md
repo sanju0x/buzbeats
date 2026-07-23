@@ -1,6 +1,6 @@
 # Nook Radio
 
-AI-curated radio for cafés, restaurants, and lobbies.
+Mood-based radio for cafés, restaurants, and lobbies.
 
 ## Setup
 
@@ -18,12 +18,8 @@ npm run dev
 | `GOOGLE_CLIENT_SECRET` | Google sign-in |
 | `NEXTAUTH_SECRET` | NextAuth sessions |
 | `NEXTAUTH_URL` | NextAuth callback URLs |
-| `XAI_API_KEY` | AI recommendations |
-| `XAI_MODEL` | Optional Grok model override (defaults to `grok-4.5`) |
-| `LAVALINK_HOST` | Audio search and streaming |
-| `LAVALINK_PORT` | Audio search and streaming |
-| `LAVALINK_PASSWORD` | Audio search and streaming |
-| `LAVALINK_SECURE` | HTTPS Lavalink nodes |
+| `AUDIUS_APP_NAME` | Optional Audius API application name (defaults to `buzbeats`) |
+| `MOOD_SONG_API_BASE` | Optional mood song API base URL (defaults to `http://luna.ender.co.in:5597`) |
 | `SUPABASE_URL` | Database persistence |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only database writes |
 
@@ -38,13 +34,12 @@ app/
   page.js
   api/auth/[...nextauth]/
   api/recommend/
-  api/lavalink/search/
-  api/lavalink/stream/
+  api/audius/stream/[trackId]/
 components/
   LoginStage, LanguageStage, MoodStage, MoodDial, LoadingStage, PlayerStage
 lib/
   config.js
-  lavalinkClient.js
+  audiusClient.js
   serverEnv.js
   supabaseServer.js
 supabase/
