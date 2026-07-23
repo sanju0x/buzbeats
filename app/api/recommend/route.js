@@ -6,7 +6,7 @@ import { serverEnv } from "@/lib/serverEnv";
 import { saveRadioSession } from "@/lib/supabaseServer";
 
 const DEFAULT_SONG_API_BASE = "http://luna.ender.co.in:5597";
-const DEFAULT_LIMIT = 12;
+const DEFAULT_LIMIT = 100;
 
 export async function POST(request) {
   const { language = "english", mood = "feelgood", exclude = [] } = await request.json();
