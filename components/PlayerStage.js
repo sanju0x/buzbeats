@@ -225,7 +225,7 @@ export default function PlayerStage({ language, mood, onBack }) {
           </button>
           <p className="eyebrow" style={{ color: "var(--mood-sad)" }}>No playable streams</p>
           <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, marginTop: 6 }}>
-            Audius did not return playable streams for the fallback playlist:
+            The song API did not return playable Audius streams:
           </p>
           <ul style={{ color: "var(--ink)", paddingLeft: 18, lineHeight: 2 }}>
             {queue.map((t, i) => (

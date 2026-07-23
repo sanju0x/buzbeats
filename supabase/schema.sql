@@ -5,7 +5,7 @@ create table if not exists public.radio_sessions (
   user_email text,
   language text not null,
   mood text not null,
-  source text not null default 'gemini',
+  source text not null default 'song_api',
   created_at timestamptz not null default now()
 );
 

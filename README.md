@@ -19,6 +19,7 @@ npm run dev
 | `NEXTAUTH_SECRET` | NextAuth sessions |
 | `NEXTAUTH_URL` | NextAuth callback URLs |
 | `AUDIUS_APP_NAME` | Optional Audius API application name (defaults to `buzbeats`) |
+| `MOOD_SONG_API_BASE` | Optional mood song API base URL (defaults to `http://luna.ender.co.in:5597`) |
 | `SUPABASE_URL` | Database persistence |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only database writes |
 
