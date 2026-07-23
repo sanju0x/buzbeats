@@ -207,6 +207,18 @@ export default function PlayerStage({ language, mood, onBack }) {
   };
 
   const current = queue[index];
+  const nextQueue = queue.length > 1 ? queue.slice(index + 1).concat(queue.slice(0, index)) : [];
+  const handleBack = () => {
+    const audio = audioRef.current;
+    audio?.pause();
+    onBack?.({
+      title: current?.title,
+      artist: current?.artist,
+      artworkUrl: current?.artworkUrl,
+      language,
+      mood,
+    });
+  };
 
   if (status === "loading") {
     return (
@@ -220,7 +232,7 @@ export default function PlayerStage({ language, mood, onBack }) {
     return (
       <div className="stage">
         <div className="clay-raised" style={{ width: "min(480px, 100%)", padding: "36px 30px" }}>
-          <button onClick={onBack} className="eyebrow" style={{ background: "none", border: "none", padding: "0 0 18px" }}>
+          <button onClick={handleBack} className="eyebrow" style={{ background: "none", border: "none", padding: "0 0 18px" }}>
             ← back
           </button>
           <p className="eyebrow" style={{ color: "var(--mood-sad)" }}>No playable streams</p>
@@ -252,7 +264,7 @@ export default function PlayerStage({ language, mood, onBack }) {
           {errorDetail && (
             <p style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{errorDetail}</p>
           )}
-          <button onClick={onBack} className="clay-pebble" style={{ marginTop: 20, padding: "12px 28px" }}>
+          <button onClick={handleBack} className="clay-pebble" style={{ marginTop: 20, padding: "12px 28px" }}>
             Go back
           </button>
         </div>
@@ -274,7 +286,7 @@ export default function PlayerStage({ language, mood, onBack }) {
       <div style={{ width: "min(420px, 100%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 22 }}>
         <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
           <button
-            onClick={onBack}
+            onClick={handleBack}
             className="eyebrow"
             style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
           >
@@ -376,30 +388,30 @@ export default function PlayerStage({ language, mood, onBack }) {
           </p>
         )}
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-          {queue.map((t, i) => (
-            <button
-              key={i}
-              onClick={() => loadTrack(i)}
-              style={{
-                border: "none",
-                borderRadius: 99,
-                padding: "6px 14px",
-                fontSize: 12,
-                fontWeight: i === index ? 700 : 400,
-                background: i === index ? moodInfo.color : "var(--clay-surface-2)",
-                color: i === index ? "#fff" : "var(--ink-soft)",
-                cursor: "pointer",
-                boxShadow: i === index
-                  ? `3px 3px 8px var(--shadow-dark), -3px -3px 8px var(--shadow-light)`
-                  : "none",
-                transition: "all 0.15s ease",
-              }}
-            >
-              {t.title}
-            </button>
-          ))}
-        </div>
+        <section className="queue-panel clay-raised" aria-label="Upcoming queue">
+          <div className="queue-heading">
+            <span className="eyebrow">Up next</span>
+            <span>{nextQueue.length} songs</span>
+          </div>
+          <div className="queue-list">
+            {nextQueue.slice(0, 6).map((t, offset) => {
+              const realIndex = (index + offset + 1) % queue.length;
+              return (
+                <button key={`${t.id || t.title}-${offset}`} className="queue-row" type="button" onClick={() => loadTrack(realIndex)}>
+                  <span
+                    className="queue-thumb"
+                    style={{ backgroundImage: t.artworkUrl ? `url(${t.artworkUrl})` : undefined }}
+                  />
+                  <span className="queue-copy">
+                    <strong>{t.title}</strong>
+                    <small>{t.artist}</small>
+                  </span>
+                  <span className="queue-number">#{offset + 1}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       </div>
 
       <style jsx>{`
@@ -550,6 +562,62 @@ export default function PlayerStage({ language, mood, onBack }) {
         .uiv-playing.is-active .uiv-line-3 { animation: uiv_playing_kf 1s infinite ease-in-out; animation-delay: 0.6s; }
         .uiv-playing.is-active .uiv-line-4 { animation: uiv_playing_kf 1s infinite ease-in-out; animation-delay: 0s; }
         .uiv-playing.is-active .uiv-line-5 { animation: uiv_playing_kf 1s infinite ease-in-out; animation-delay: 0.4s; }
+        .queue-panel {
+          width: min(420px, 100%);
+          padding: 18px;
+        }
+        .queue-heading {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          color: var(--ink-soft);
+          font-size: 12px;
+          margin-bottom: 12px;
+        }
+        .queue-list {
+          display: grid;
+          gap: 10px;
+          max-height: 270px;
+          overflow: auto;
+          padding-right: 4px;
+        }
+        .queue-row {
+          border: 0;
+          border-radius: 18px;
+          background: var(--clay-surface-2);
+          display: grid;
+          grid-template-columns: 48px 1fr auto;
+          gap: 12px;
+          align-items: center;
+          padding: 10px;
+          text-align: left;
+          color: var(--ink);
+        }
+        .queue-thumb {
+          width: 48px;
+          height: 48px;
+          border-radius: 14px;
+          background: linear-gradient(135deg, ${moodInfo.color}, #151515);
+          background-size: cover;
+          background-position: center;
+        }
+        .queue-copy {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+        .queue-copy strong,
+        .queue-copy small {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .queue-copy small,
+        .queue-number {
+          color: var(--ink-soft);
+          font-size: 12px;
+        }
         @keyframes uiv_playing_kf {
           0% { transform: scaleY(0.1); }
           33% { transform: scaleY(0.6); }
