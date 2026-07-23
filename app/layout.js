@@ -1,5 +1,6 @@
 import "./globals.css";
 import Providers from "./providers";
+import AppChrome from "@/components/AppChrome";
 
 export const metadata = {
   title: "Nook Radio — mood radio for cafés & restaurants",
@@ -19,7 +20,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>{children}<AppChrome /></Providers>
       </body>
     </html>
   );

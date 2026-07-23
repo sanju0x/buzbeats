@@ -1,40 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useEffect } from "react";
 import LoginStage from "@/components/LoginStage";
-import LanguageStage from "@/components/LanguageStage";
-import MoodStage from "@/components/MoodStage";
-import PlayerStage from "@/components/PlayerStage";
 
 export default function Home() {
+  const router = useRouter();
   const { data: session } = useSession();
-  const [demo, setDemo] = useState(false);
-  const [language, setLanguage] = useState(null);
-  const [mood, setMood] = useState(null);
 
-  const signedIn = !!session || demo;
+  useEffect(() => {
+    if (session) router.replace("/language");
+  }, [router, session]);
 
-  if (!signedIn) {
-    return <LoginStage onDemoContinue={() => setDemo(true)} />;
-  }
+  const startDemo = () => {
+    localStorage.setItem("buzbeats-demo-ends-at", String(Date.now() + 60000));
+    router.push("/language");
+  };
 
-  if (!language) {
-    return <LanguageStage onSelect={setLanguage} />;
-  }
-
-  if (!mood) {
-    return <MoodStage onConfirm={setMood} />;
-  }
-
-  return (
-    <PlayerStage
-      language={language}
-      mood={mood}
-      onBack={() => {
-        setLanguage(null);
-        setMood(null);
-      }}
-    />
-  );
+  return <LoginStage onDemoContinue={startDemo} />;
 }
