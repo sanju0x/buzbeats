@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { MOODS, LANGUAGES } from "@/lib/config";
 import LoadingStage from "./LoadingStage";
+import { RADIO_STATIONS, selectRadioStation } from "@/lib/radioStations";
 
 export default function PlayerStage({ language, mood, onBack }) {
   const moodInfo = MOODS.find((m) => m.id === mood) || MOODS[0];
   const languageInfo = LANGUAGES.find((l) => l.id === language) || LANGUAGES[3];
 
+  const [stationId, setStationId] = useState("");
+  const [activeStation, setActiveStation] = useState(null);
   const [queue, setQueue] = useState([]);
   const [index, setIndex] = useState(0);
   const [status, setStatus] = useState("loading");
@@ -23,6 +26,8 @@ export default function PlayerStage({ language, mood, onBack }) {
   const indexRef = useRef(0);
   const shuffleRef = useRef(false);
   const repeatRef = useRef(false);
+  const volumeRef = useRef(1);
+  const failedTracksRef = useRef(new Set());
 
   useEffect(() => {
     shuffleRef.current = shuffle;
@@ -34,6 +39,13 @@ export default function PlayerStage({ language, mood, onBack }) {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    audioRef.current?.pause();
+    failedTracksRef.current.clear();
+    setErrorDetail(null);
+    setIsPlaying(false);
+    setProgress(0);
+    setDuration(0);
     setStatus("loading");
     setQueue([]);
     setIndex(0);
@@ -42,7 +54,8 @@ export default function PlayerStage({ language, mood, onBack }) {
     fetch("/api/recommend", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ language, mood }),
+      body: JSON.stringify({ language, mood, stationId: stationId || undefined }),
+      signal: controller.signal,
     })
       .then((r) => r.json())
       .then((data) => {
@@ -64,6 +77,7 @@ export default function PlayerStage({ language, mood, onBack }) {
           return;
         }
 
+        setActiveStation(data.station || null);
         setQueue(playable);
         setStatus("ready");
       })
@@ -76,8 +90,10 @@ export default function PlayerStage({ language, mood, onBack }) {
 
     return () => {
       cancelled = true;
+      controller.abort();
+      audioRef.current?.pause();
     };
-  }, [language, mood]);
+  }, [language, mood, stationId]);
 
   const pickNext = useCallback((len, current) => {
     if (shuffleRef.current && len > 1) {
@@ -96,13 +112,13 @@ export default function PlayerStage({ language, mood, onBack }) {
       setIndex(i);
       setProgress(0);
       audio.src = queue[i].streamUrl;
-      audio.volume = volume;
+      audio.volume = volumeRef.current;
       audio.load();
       audio.play().catch((err) => {
         setErrorDetail(`Could not start playback: ${err.message}`);
       });
     },
-    [queue, volume]
+    [queue]
   );
 
   useEffect(() => {
@@ -110,6 +126,10 @@ export default function PlayerStage({ language, mood, onBack }) {
     if (!audio) return;
 
     const onPlay = () => setIsPlaying(true);
+    const onPlaying = () => {
+      failedTracksRef.current.clear();
+      setErrorDetail(null);
+    };
     const onPause = () => setIsPlaying(false);
     const onEnded = () => {
       if (repeatRef.current) {
@@ -120,21 +140,25 @@ export default function PlayerStage({ language, mood, onBack }) {
       loadTrack(next);
     };
     const onTimeUpdate = () => setProgress(audio.currentTime);
-    const onDurationChange = () => setDuration(audio.duration || 0);
+    const onDurationChange = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
     const onError = () => {
       const code = audio.error?.code;
       setErrorDetail(
         `Playback failed for "${queue[indexRef.current]?.title || "track"}" (media error ${code || "unknown"})`
       );
-      if (queue.length > 1) {
-        const next = pickNext(queue.length, indexRef.current);
-        loadTrack(next);
-      } else {
+      failedTracksRef.current.add(indexRef.current);
+      const next = queue.findIndex((_, i) => !failedTracksRef.current.has(i));
+      if (next !== -1) loadTrack(next);
+      else {
+        audio.pause();
+        setIsPlaying(false);
         setStatus("error");
+        setErrorDetail("No tracks could be played. Choose another station or check NodeLink streaming.");
       }
     };
 
     audio.addEventListener("play", onPlay);
+    audio.addEventListener("playing", onPlaying);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("timeupdate", onTimeUpdate);
@@ -143,6 +167,7 @@ export default function PlayerStage({ language, mood, onBack }) {
 
     return () => {
       audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("playing", onPlaying);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("timeupdate", onTimeUpdate);
@@ -160,7 +185,8 @@ export default function PlayerStage({ language, mood, onBack }) {
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    isPlaying ? audio.pause() : audio.play();
+    if (isPlaying) audio.pause();
+    else audio.play().catch(() => setErrorDetail("Press play to allow audio in your browser."));
   };
 
   const skip = () => {
@@ -186,7 +212,7 @@ export default function PlayerStage({ language, mood, onBack }) {
     const audio = audioRef.current;
     if (!audio || !duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = (e.clientX - rect.left) / rect.width;
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     audio.currentTime = ratio * duration;
   };
 
@@ -196,6 +222,7 @@ export default function PlayerStage({ language, mood, onBack }) {
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     audio.volume = ratio;
+    volumeRef.current = ratio;
     setVolume(ratio);
   };
 
@@ -225,10 +252,28 @@ export default function PlayerStage({ language, mood, onBack }) {
     });
   };
 
+  const selector = (
+    <label style={{ display: "grid", gap: 8, width: "100%", marginBottom: 16 }}>
+      <span className="eyebrow">Radio station</span>
+      <select
+        aria-label="Radio station"
+        value={stationId || selectRadioStation({ language, mood })?.id || ""}
+        onChange={(event) => setStationId(event.target.value)}
+        className="clay-pebble"
+        style={{ padding: 12, width: "100%", color: "var(--ink)", background: "var(--clay-surface-2)" }}
+      >
+        <option value="" disabled>Choose a station</option>
+        {RADIO_STATIONS.map((station) => (
+          <option key={station.id} value={station.id}>{station.name} · {station.language}</option>
+        ))}
+      </select>
+    </label>
+  );
+
   if (status === "loading") {
     return (
       <LoadingStage
-        label={`Loading ${moodInfo.label.toLowerCase()} ${languageInfo.label} songs…`}
+        label="Loading your radio station…"
       />
     );
   }
@@ -242,7 +287,7 @@ export default function PlayerStage({ language, mood, onBack }) {
           </button>
           <p className="eyebrow" style={{ color: "var(--mood-sad)" }}>No playable streams</p>
           <p style={{ color: "var(--ink-soft)", lineHeight: 1.6, marginTop: 6 }}>
-            The song API did not return playable Audius streams:
+            NodeLink did not return playable tracks:
           </p>
           <ul style={{ color: "var(--ink)", paddingLeft: 18, lineHeight: 2 }}>
             {queue.map((t, i) => (
@@ -265,7 +310,8 @@ export default function PlayerStage({ language, mood, onBack }) {
     return (
       <div className="stage">
         <div className="clay-raised" style={{ width: "min(420px, 100%)", padding: "36px 30px", textAlign: "center" }}>
-          <p style={{ color: "var(--ink-soft)" }}>Something went wrong loading the queue.</p>
+          {selector}
+          <p style={{ color: "var(--ink-soft)" }}>Could not load this radio station.</p>
           {errorDetail && (
             <p style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{errorDetail}</p>
           )}
@@ -298,10 +344,11 @@ export default function PlayerStage({ language, mood, onBack }) {
             ← change
           </button>
           <span className="eyebrow">
-            {languageInfo.label} · {moodInfo.label}
+            {activeStation?.name || languageInfo.label}
           </span>
         </div>
 
+        {selector}
         <div className="uiv-card">
           <div className="uiv-top">
             <div className="uiv-pfp" style={{
