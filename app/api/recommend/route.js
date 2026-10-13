@@ -1,108 +1,52 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { streamUrl } from "@/lib/audiusClient";
-import { serverEnv } from "@/lib/serverEnv";
+import { getRadioNode } from "@/lib/lavalinkServer";
+import { selectRadioStation } from "@/lib/radioStations";
+import { createStreamToken } from "@/lib/radioTokens";
 import { saveRadioSession } from "@/lib/supabaseServer";
 
-const DEFAULT_SONG_API_BASE = "http://luna.ender.co.in:5597";
-const DEFAULT_LIMIT = 100;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request) {
-  const { language = "english", mood = "feelgood", exclude = [] } = await request.json();
-  const env = serverEnv();
-  const session = await getServerSession(authOptions);
-
+  let input;
   try {
-    const tracks = await fetchSongApiTracks({
-      baseUrl: env.MOOD_SONG_API_BASE || DEFAULT_SONG_API_BASE,
-      language,
-      mood,
-      exclude,
-    });
-
-    if (tracks.length === 0) {
-      await persistSession({ session, language, mood, tracks: [], source: "song_api" });
-      return NextResponse.json(
-        { tracks: [], error: "song_api_returned_nothing", message: "No songs matched this mood and language." },
-        { status: 404 }
-      );
+    input = await request.json();
+    if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error();
+    if (["stationId", "language", "mood"].some((key) => input[key] !== undefined && typeof input[key] !== "string")) throw new Error();
+    if (input.exclude !== undefined && (!Array.isArray(input.exclude) || input.exclude.length > 1000 || input.exclude.some((value) => typeof value !== "string"))) throw new Error();
+  } catch {
+    return NextResponse.json({ tracks: [], error: "invalid_request", message: "Send a valid radio selection." }, { status: 400 });
+  }
+  const { language = "english", mood = "feelgood", exclude = [] } = input;
+  const station = selectRadioStation(input);
+  if (!station) return NextResponse.json({ tracks: [], error: "station_unavailable", message: "No station matches this selection. Choose one of the available radio stations." }, { status: 400 });
+  try {
+    const node = await getRadioNode();
+    const result = await node.search({ query: station.streamUrl }, { id: "radio" });
+    if (result.loadType === "error") throw new Error("Playlist loading failed.");
+    const excluded = new Set(exclude.map((title) => title.toLowerCase().trim()));
+    const tracks = result.tracks.filter((track) => track.encoded && !excluded.has(track.info.title.toLowerCase())).map((track) => ({
+      id: track.info.identifier,
+      title: track.info.title,
+      artist: track.info.author,
+      duration: track.info.duration,
+      artworkUrl: track.info.artworkUrl || null,
+      uri: track.info.uri,
+      streamUrl: `/api/radio/stream?token=${createStreamToken(track.encoded)}`,
+      stationId: station.id,
+    }));
+    if (!tracks.length) return NextResponse.json({ tracks: [], error: "empty_station", message: "This playlist has no available tracks. Check Spotify support on NodeLink or choose another station." }, { status: 404 });
+    let sessionId = null;
+    try {
+      const session = await getServerSession(authOptions);
+      sessionId = await saveRadioSession({ userEmail: session?.user?.email, language, mood, tracks, source: "nodelink" });
+    } catch {
+      console.error("[radio] Session persistence failed.");
     }
-
-    const sessionId = await persistSession({
-      session,
-      language,
-      mood,
-      tracks,
-      source: "song_api",
-    });
-
-    return NextResponse.json({ tracks, sessionId, source: "song_api" });
-  } catch (err) {
-    console.error("[recommend] Song API failed:", err.message);
-    return NextResponse.json(
-      { tracks: [], error: "song_api_failed", message: "The song API could not return playable tracks." },
-      { status: 502 }
-    );
-  }
-}
-
-async function fetchSongApiTracks({ baseUrl, language, mood, exclude }) {
-  const url = new URL("/api/songs", baseUrl);
-  url.searchParams.set("mood", mood);
-  url.searchParams.set("language", language);
-  url.searchParams.set("limit", String(DEFAULT_LIMIT));
-  url.searchParams.set("sort", "relevance");
-
-  const response = await fetch(url, {
-    cache: "no-store",
-    headers: { Accept: "application/json" },
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Song API returned ${response.status}: ${body}`);
-  }
-
-  const payload = await response.json();
-  const excluded = new Set(exclude.map((title) => String(title).toLowerCase().trim()).filter(Boolean));
-  const songs = Array.isArray(payload?.data) ? payload.data : [];
-
-  return songs
-    .map((song) => normalizeSong(song))
-    .filter((track) => track.id && track.streamUrl && !excluded.has(track.title.toLowerCase()));
-}
-
-function normalizeSong(song) {
-  const artwork = typeof song?.artwork === "string" ? song.artwork : song?.artwork?.["480x480"] || song?.artwork?.["1000x1000"] || song?.artwork?.["150x150"] || null;
-
-  return {
-    id: song?.id || null,
-    title: song?.title || "Unknown",
-    artist: song?.artist || song?.user?.name || song?.handle || "Audius artist",
-    duration: typeof song?.durationSec === "number" ? song.durationSec * 1000 : typeof song?.duration === "number" ? song.duration * 1000 : null,
-    artworkUrl: artwork,
-    uri: song?.permalink || song?.permalink_url || null,
-    streamUrl: song?.id ? streamUrl(song.id) : null,
-    genre: song?.genre || null,
-    mood: song?.mood || null,
-    plays: song?.plays || null,
-    favorites: song?.favorites || null,
-    requestedLanguage: song?.requestedLanguage || null,
-  };
-}
-
-async function persistSession({ session, language, mood, tracks, source }) {
-  try {
-    return await saveRadioSession({
-      userEmail: session?.user?.email,
-      language,
-      mood,
-      tracks,
-      source,
-    });
-  } catch (err) {
-    console.error("[recommend] Supabase persistence failed:", err.message);
-    return null;
+    return NextResponse.json({ tracks, station, sessionId, source: "nodelink" }, { headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return NextResponse.json({ tracks: [], error: "nodelink_failed", message: "Radio is unavailable. Check NodeLink connection settings and Spotify source support." }, { status: 502 });
   }
 }

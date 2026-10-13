@@ -1,4 +1,5 @@
 const nextConfig = {
+  experimental: { serverComponentsExternalPackages: ["lavalink-client"] },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "i.ytimg.com" },
