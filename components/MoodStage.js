@@ -20,6 +20,8 @@ export default function MoodStage({ onConfirm }) {
 
         <div
           className="uiv-select-list"
+          role="radiogroup"
+          aria-label="Radio mood"
           style={{
             display: "flex",
             flexWrap: "wrap",
@@ -31,7 +33,8 @@ export default function MoodStage({ onConfirm }) {
           {MOODS.map((m) => (
             <label key={m.id} className="uiv-select-pill" style={{ "--pill-color": m.color }}>
               <input
-                type="checkbox"
+                type="radio"
+                name="mood"
                 className="uiv-select-checkbox"
                 checked={mood === m.id}
                 onChange={() => setMood(m.id)}

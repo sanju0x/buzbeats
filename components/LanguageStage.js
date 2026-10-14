@@ -20,6 +20,8 @@ export default function LanguageStage({ onSelect }) {
         </h1>
 
         <div
+          role="radiogroup"
+          aria-label="Radio language"
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
@@ -40,7 +42,8 @@ export default function LanguageStage({ onSelect }) {
               }}
             >
               <input
-                type="checkbox"
+                type="radio"
+                name="language"
                 className="uiv-select-checkbox"
                 checked={checked === lang.id}
                 onChange={() => choose(lang.id)}

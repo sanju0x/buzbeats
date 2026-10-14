@@ -36,6 +36,32 @@ body {
   font-family: var(--font-body);
 }
 
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+::selection {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--mood-current) 38%, white);
+}
+
+button,
+select,
+input {
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--mood-current);
+  outline-offset: 3px;
+}
+
 body {
   background-image: radial-gradient(
       circle at 15% 10%,
@@ -79,13 +105,19 @@ button {
 }
 
 .stage {
-  min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 32px 20px;
   transition: background 0.6s ease;
+}
+
+.mood-dial {
+  position: relative;
+  width: min(320px, calc(100vw - 40px));
+  aspect-ratio: 1;
 }
 
 .eyebrow {
@@ -420,5 +452,30 @@ button {
   .demo-timer {
     top: 10px;
     right: 10px;
+  }
+}
+
+@media (max-width: 420px) {
+  .headline {
+    font-size: 28px !important;
+  }
+
+  .uiv-select-card {
+    padding: 18px 12px !important;
+  }
+
+  .uiv-select-card > span > span:first-child {
+    font-size: 18px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

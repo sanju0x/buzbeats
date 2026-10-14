@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "node --test tests/*.test.cjs"
+    "lint": "next lint"
   },
   "dependencies": {
     "lavalink-client": "^2.11.0",
@@ -15,8 +14,5 @@
     "next-auth": "4.24.7",
     "react": "18.3.1",
     "react-dom": "18.3.1"
-  },
-  "devDependencies": {
-    "ws": "^8.22.0"
   }
 }

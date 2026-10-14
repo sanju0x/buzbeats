@@ -9,8 +9,8 @@ const RADIUS = 138;
 function posFor(angle) {
   const rad = (angle * Math.PI) / 180;
   return {
-    left: CENTER + RADIUS * Math.sin(rad),
-    top: CENTER - RADIUS * Math.cos(rad),
+    left: `${((CENTER + RADIUS * Math.sin(rad)) / SIZE) * 100}%`,
+    top: `${((CENTER - RADIUS * Math.cos(rad)) / SIZE) * 100}%`,
   };
 }
 
@@ -19,7 +19,7 @@ export default function MoodDial({ selected, onSelect }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 26 }}>
-      <div style={{ position: "relative", width: SIZE, height: SIZE }}>
+      <div className="mood-dial" role="group" aria-label="Choose a mood">
         <div
           className="clay-pressed"
           style={{
@@ -43,8 +43,8 @@ export default function MoodDial({ selected, onSelect }) {
                 left,
                 top,
                 transform: "translate(-50%, -50%)",
-                width: 84,
-                height: 84,
+                width: "clamp(68px, 22vw, 84px)",
+                height: "clamp(68px, 22vw, 84px)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -73,8 +73,8 @@ export default function MoodDial({ selected, onSelect }) {
             left: "50%",
             top: "50%",
             transform: "translate(-50%, -50%)",
-            width: 176,
-            height: 176,
+            width: "55%",
+            height: "55%",
             borderRadius: "50%",
             display: "flex",
             alignItems: "center",
@@ -106,8 +106,8 @@ export default function MoodDial({ selected, onSelect }) {
           <div
             className="clay-pressed"
             style={{
-              width: 96,
-              height: 96,
+              width: "55%",
+              height: "55%",
               borderRadius: "50%",
               display: "flex",
               alignItems: "center",

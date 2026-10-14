@@ -6,8 +6,13 @@ export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    setVisible(true);
+    setVisible(!localStorage.getItem("buzbeats-cookie-choice"));
   }, []);
+
+  const choose = (choice) => {
+    localStorage.setItem("buzbeats-cookie-choice", choice);
+    setVisible(false);
+  };
 
   if (!visible) return null;
 
@@ -16,13 +21,13 @@ export default function CookieConsent() {
       <div className="cookie-check" aria-hidden="true">✓</div>
       <div>
         <strong>Cookie choices</strong>
-        <p>Accept cookies for saved preferences, or decline and we will ask again next time.</p>
+        <p>Choose whether to save preferences on this device. You can clear site data to reset this choice.</p>
       </div>
       <div className="cookie-actions">
-        <button type="button" onClick={() => setVisible(false)} className="cookie-decline">
+        <button type="button" onClick={() => choose("declined")} className="cookie-decline">
           Decline
         </button>
-        <button type="button" onClick={() => setVisible(false)} className="cookie-accept">
+        <button type="button" onClick={() => choose("accepted")} className="cookie-accept">
           Accept
         </button>
       </div>
