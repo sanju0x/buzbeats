@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { MOODS, LANGUAGES } from "@/lib/config";
 import LoadingStage from "./LoadingStage";
-import { RADIO_STATIONS, selectRadioStation } from "@/lib/radioStations";
+import { YT_MUSIC_PLAYLISTS } from "@/lib/ytMusicPlaylists";
 
 export default function PlayerStage({ language, mood, onBack }) {
   const moodInfo = MOODS.find((m) => m.id === mood) || MOODS[0];
   const languageInfo = LANGUAGES.find((l) => l.id === language) || LANGUAGES[3];
 
-  const [stationId, setStationId] = useState("");
-  const [activeStation, setActiveStation] = useState(null);
+  const [mixId, setMixId] = useState("auto");
+  const [collection, setCollection] = useState(null);
   const [queue, setQueue] = useState([]);
   const [index, setIndex] = useState(0);
   const [status, setStatus] = useState("loading");
@@ -21,13 +21,18 @@ export default function PlayerStage({ language, mood, onBack }) {
   const [volume, setVolume] = useState(1);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(false);
+  const [isRefilling, setIsRefilling] = useState(false);
 
   const audioRef = useRef(null);
+  const queueRef = useRef([]);
   const indexRef = useRef(0);
+  const cursorRef = useRef(0);
   const shuffleRef = useRef(false);
   const repeatRef = useRef(false);
   const volumeRef = useRef(1);
   const failedTracksRef = useRef(new Set());
+  const refillPromiseRef = useRef(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     shuffleRef.current = shuffle;
@@ -36,6 +41,24 @@ export default function PlayerStage({ language, mood, onBack }) {
   useEffect(() => {
     repeatRef.current = repeat;
   }, [repeat]);
+
+  useEffect(() => () => {
+    mountedRef.current = false;
+  }, []);
+
+  const fetchBatch = useCallback(async ({ cursor, seed, exclude, signal }) => {
+    const response = await fetch("/api/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language, mood, playlistId: mixId, cursor, seed, exclude }),
+      signal,
+    });
+    const data = await response.json();
+    if (!response.ok || !data.tracks?.length) {
+      throw new Error(data.message || data.error || "YouTube Music returned no songs.");
+    }
+    return data;
+  }, [language, mood, mixId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,37 +71,19 @@ export default function PlayerStage({ language, mood, onBack }) {
     setDuration(0);
     setStatus("loading");
     setQueue([]);
+    queueRef.current = [];
     setIndex(0);
     indexRef.current = 0;
+    cursorRef.current = 0;
 
-    fetch("/api/recommend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ language, mood, stationId: stationId || undefined }),
-      signal: controller.signal,
-    })
-      .then((r) => r.json())
+    fetchBatch({ cursor: 0, exclude: [], signal: controller.signal })
       .then((data) => {
         if (cancelled) return;
-
-        const { tracks, error } = data;
-
-        if (!tracks?.length) {
-          setStatus("error");
-          setErrorDetail(data.message || error || "No tracks returned from the server.");
-          return;
-        }
-
-        const playable = tracks.filter((t) => t.streamUrl);
-        if (playable.length === 0) {
-          setQueue(tracks);
-          setStatus("unplayable");
-          setErrorDetail(data.message || error || null);
-          return;
-        }
-
-        setActiveStation(data.station || null);
+        const playable = data.tracks.filter((track) => track.streamUrl);
+        queueRef.current = playable;
         setQueue(playable);
+        setCollection(data.collection || null);
+        cursorRef.current = data.nextCursor || 1;
         setStatus("ready");
       })
       .catch((err) => {
@@ -93,33 +98,81 @@ export default function PlayerStage({ language, mood, onBack }) {
       controller.abort();
       audioRef.current?.pause();
     };
-  }, [language, mood, stationId]);
+  }, [fetchBatch]);
 
-  const pickNext = useCallback((len, current) => {
-    if (shuffleRef.current && len > 1) {
-      let next = current;
-      while (next === current) next = Math.floor(Math.random() * len);
-      return next;
-    }
-    return (current + 1) % len;
-  }, []);
+  const refillQueue = useCallback((seed) => {
+    if (refillPromiseRef.current) return refillPromiseRef.current;
+    setIsRefilling(true);
+    const existing = queueRef.current;
+    const exclude = existing.map((track) => track.id || `${track.title}::${track.artist || ""}`);
+    const promise = fetchBatch({ cursor: cursorRef.current, seed, exclude })
+      .then((data) => {
+        const known = new Set(queueRef.current.map((track) => track.id));
+        const additions = data.tracks.filter((track) => track.streamUrl && !known.has(track.id));
+        if (additions.length) {
+          queueRef.current = [...queueRef.current, ...additions];
+          if (mountedRef.current) setQueue(queueRef.current);
+        }
+        cursorRef.current = data.nextCursor || cursorRef.current + 1;
+        return additions;
+      })
+      .catch((error) => {
+        if (mountedRef.current) setErrorDetail(`Could not extend the queue: ${error.message}`);
+        return [];
+      })
+      .finally(() => {
+        refillPromiseRef.current = null;
+        if (mountedRef.current) setIsRefilling(false);
+      });
+    refillPromiseRef.current = promise;
+    return promise;
+  }, [fetchBatch]);
 
   const loadTrack = useCallback(
     (i) => {
       const audio = audioRef.current;
-      if (!audio || !queue[i]?.streamUrl) return;
+      const track = queueRef.current[i];
+      if (!audio || !track?.streamUrl) return;
       indexRef.current = i;
       setIndex(i);
       setProgress(0);
-      audio.src = queue[i].streamUrl;
+      audio.src = track.streamUrl;
       audio.volume = volumeRef.current;
       audio.load();
       audio.play().catch((err) => {
-        setErrorDetail(`Could not start playback: ${err.message}`);
+        const message = err?.name === "NotAllowedError"
+          ? "Your browser blocked autoplay. Press play once to start the mix."
+          : `Could not start playback: ${err.message}`;
+        setErrorDetail(message);
       });
     },
-    [queue]
+    []
   );
+
+  const advance = useCallback(async () => {
+    if (repeatRef.current) {
+      loadTrack(indexRef.current);
+      return;
+    }
+
+    const currentIndex = indexRef.current;
+    if (shuffleRef.current && queueRef.current.length > 1) {
+      let next = currentIndex;
+      while (next === currentIndex) next = Math.floor(Math.random() * queueRef.current.length);
+      loadTrack(next);
+      return;
+    }
+
+    let next = currentIndex + 1;
+    if (next >= queueRef.current.length) {
+      await refillQueue(queueRef.current[currentIndex]?.id);
+    }
+    if (next < queueRef.current.length) loadTrack(next);
+    else {
+      audioRef.current?.pause();
+      setErrorDetail("No new YouTube Music recommendations are available yet. Press next to retry.");
+    }
+  }, [loadTrack, refillQueue]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -131,30 +184,18 @@ export default function PlayerStage({ language, mood, onBack }) {
       setErrorDetail(null);
     };
     const onPause = () => setIsPlaying(false);
-    const onEnded = () => {
-      if (repeatRef.current) {
-        loadTrack(indexRef.current);
-        return;
-      }
-      const next = pickNext(queue.length, indexRef.current);
-      loadTrack(next);
-    };
+    const onEnded = () => void advance();
     const onTimeUpdate = () => setProgress(audio.currentTime);
     const onDurationChange = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
     const onError = () => {
       const code = audio.error?.code;
       setErrorDetail(
-        `Playback failed for "${queue[indexRef.current]?.title || "track"}" (media error ${code || "unknown"})`
+        `Playback failed for "${queueRef.current[indexRef.current]?.title || "track"}" (media error ${code || "unknown"})`
       );
       failedTracksRef.current.add(indexRef.current);
-      const next = queue.findIndex((_, i) => !failedTracksRef.current.has(i));
+      const next = queueRef.current.findIndex((_, i) => i > indexRef.current && !failedTracksRef.current.has(i));
       if (next !== -1) loadTrack(next);
-      else {
-        audio.pause();
-        setIsPlaying(false);
-        setStatus("error");
-        setErrorDetail("No tracks could be played. Choose another station or check NodeLink streaming.");
-      }
+      else void advance();
     };
 
     audio.addEventListener("play", onPlay);
@@ -174,13 +215,19 @@ export default function PlayerStage({ language, mood, onBack }) {
       audio.removeEventListener("durationchange", onDurationChange);
       audio.removeEventListener("error", onError);
     };
-  }, [queue, pickNext, loadTrack]);
+  }, [advance, loadTrack]);
 
   useEffect(() => {
     if (status === "ready" && queue.length > 0) {
       loadTrack(0);
     }
-  }, [status, queue, loadTrack]);
+  }, [status, loadTrack]);
+
+  useEffect(() => {
+    if (status === "ready" && queue.length - index <= 6) {
+      void refillQueue(queue[index]?.id);
+    }
+  }, [index, queue, status, refillQueue]);
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -190,12 +237,11 @@ export default function PlayerStage({ language, mood, onBack }) {
   };
 
   const skip = () => {
-    const next = pickNext(queue.length, index);
-    loadTrack(next);
+    void advance();
   };
 
   const prev = () => {
-    const p = (index - 1 + queue.length) % queue.length;
+    const p = Math.max(0, index - 1);
     loadTrack(p);
   };
 
@@ -231,7 +277,7 @@ export default function PlayerStage({ language, mood, onBack }) {
   };
 
   const current = queue[index];
-  const nextQueue = queue.length > 1 ? queue.slice(index + 1).concat(queue.slice(0, index)) : [];
+  const nextQueue = queue.slice(index + 1);
   const handleBack = () => {
     const audio = audioRef.current;
     const wasPlaying = !!audio && !audio.paused;
@@ -251,17 +297,16 @@ export default function PlayerStage({ language, mood, onBack }) {
 
   const selector = (
     <label style={{ display: "grid", gap: 8, width: "100%", marginBottom: 16 }}>
-      <span className="eyebrow">Radio station</span>
+      <span className="eyebrow">YouTube Music playlist</span>
       <select
-        aria-label="Radio station"
-        value={stationId || selectRadioStation({ language, mood })?.id || ""}
-        onChange={(event) => setStationId(event.target.value)}
+        aria-label="YouTube Music playlist"
+        value={mixId}
+        onChange={(event) => setMixId(event.target.value)}
         className="clay-pebble"
         style={{ padding: 12, width: "100%", color: "var(--ink)", background: "var(--clay-surface-2)" }}
       >
-        <option value="" disabled>Choose a station</option>
-        {RADIO_STATIONS.map((station) => (
-          <option key={station.id} value={station.id}>{station.name} · {station.language}</option>
+        {YT_MUSIC_PLAYLISTS.map((playlist) => (
+          <option key={playlist.id} value={playlist.id}>{playlist.name}</option>
         ))}
       </select>
     </label>
@@ -270,7 +315,7 @@ export default function PlayerStage({ language, mood, onBack }) {
   if (status === "loading") {
     return (
       <LoadingStage
-        label="Loading your radio station…"
+        label="Building your YouTube Music mix…"
       />
     );
   }
@@ -308,7 +353,7 @@ export default function PlayerStage({ language, mood, onBack }) {
       <div className="stage">
         <div className="clay-raised" style={{ width: "min(420px, 100%)", padding: "36px 30px", textAlign: "center" }}>
           {selector}
-          <p style={{ color: "var(--ink-soft)" }}>Could not load this radio station.</p>
+          <p style={{ color: "var(--ink-soft)" }}>Could not build this YouTube Music mix.</p>
           {errorDetail && (
             <p style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{errorDetail}</p>
           )}
@@ -340,7 +385,7 @@ export default function PlayerStage({ language, mood, onBack }) {
             <span aria-hidden="true">←</span> Change mood
           </button>
           <span className="eyebrow player-station-name">
-            {activeStation?.name || languageInfo.label}
+            {collection?.name || `${languageInfo.label} · YouTube Music`}
           </span>
         </div>
 
@@ -433,11 +478,11 @@ export default function PlayerStage({ language, mood, onBack }) {
         <section className="queue-panel clay-raised" aria-label="Upcoming queue">
           <div className="queue-heading">
             <span className="eyebrow">Up next</span>
-            <span>{nextQueue.length} songs</span>
+            <span>{isRefilling ? "Finding more…" : `${nextQueue.length} songs queued`}</span>
           </div>
           <div className="queue-list">
             {nextQueue.slice(0, 6).map((t, offset) => {
-              const realIndex = (index + offset + 1) % queue.length;
+              const realIndex = index + offset + 1;
               return (
                 <button key={`${t.id || t.title}-${offset}`} className="queue-row" type="button" onClick={() => loadTrack(realIndex)}>
                   <span
