@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getRadioNode } from "@/lib/lavalinkServer";
+import { getDirectRadioStream, loadRadioPlaylist, RadioServerError } from "@/lib/lavalinkServer";
 import { selectRadioStation } from "@/lib/radioStations";
 import { createStreamToken } from "@/lib/radioTokens";
 import { saveRadioSession } from "@/lib/supabaseServer";
@@ -23,21 +23,20 @@ export async function POST(request) {
   const station = selectRadioStation(input);
   if (!station) return NextResponse.json({ tracks: [], error: "station_unavailable", message: "No station matches this selection. Choose one of the available radio stations." }, { status: 400 });
   try {
-    const node = await getRadioNode();
-    const result = await node.search({ query: station.streamUrl }, { id: "radio" });
-    if (result.loadType === "error") throw new Error("Playlist loading failed.");
+    const result = await loadRadioPlaylist(station.streamUrl);
     const excluded = new Set(exclude.map((title) => title.toLowerCase().trim()));
-    const tracks = result.tracks.filter((track) => track.encoded && !excluded.has(track.info.title.toLowerCase())).map((track) => ({
+    const tracks = result.tracks.filter((track) => track?.encoded && track?.info?.title && !excluded.has(track.info.title.toLowerCase())).map((track) => ({
       id: track.info.identifier,
       title: track.info.title,
       artist: track.info.author,
-      duration: track.info.duration,
+      duration: track.info.length || track.info.duration || 0,
       artworkUrl: track.info.artworkUrl || null,
       uri: track.info.uri,
       streamUrl: `/api/radio/stream?token=${createStreamToken(track.encoded)}`,
       stationId: station.id,
     }));
     if (!tracks.length) return NextResponse.json({ tracks: [], error: "empty_station", message: "This playlist has no available tracks. Check Spotify support on NodeLink or choose another station." }, { status: 404 });
+    await getDirectRadioStream(result.tracks.find((track) => track?.encoded)?.encoded);
     let sessionId = null;
     try {
       const session = await getServerSession(authOptions);
@@ -46,7 +45,16 @@ export async function POST(request) {
       console.error("[radio] Session persistence failed.");
     }
     return NextResponse.json({ tracks, station, sessionId, source: "nodelink" }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
-    return NextResponse.json({ tracks: [], error: "nodelink_failed", message: "Radio is unavailable. Check NodeLink connection settings and Spotify source support." }, { status: 502 });
+  } catch (error) {
+    console.error("[radio] Playlist request failed:", error?.code || error?.name, error?.message);
+    const known = error instanceof RadioServerError;
+    return NextResponse.json(
+      {
+        tracks: [],
+        error: known ? error.code : "nodelink_failed",
+        message: known ? error.message : "Radio is unavailable because NodeLink could not load this playlist.",
+      },
+      { status: known && error.status >= 400 && error.status < 600 ? error.status : 502 }
+    );
   }
 }

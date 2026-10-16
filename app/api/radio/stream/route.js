@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRadioNode } from "@/lib/lavalinkServer";
+import { getDirectRadioStream, RadioServerError } from "@/lib/lavalinkServer";
 import { verifyStreamToken } from "@/lib/radioTokens";
 
 export const runtime = "nodejs";
@@ -9,9 +9,7 @@ export async function GET(request) {
   try {
     const encoded = verifyStreamToken(new URL(request.url).searchParams.get("token"));
     if (!encoded) return NextResponse.json({ error: "invalid_or_expired_stream" }, { status: 403 });
-    const node = await getRadioNode();
-    const stream = await node.request(`/trackstream?encodedTrack=${encodeURIComponent(encoded)}`, (options) => { options.cache = "no-store"; });
-    if (!stream?.url) throw new Error("No direct stream returned.");
+    const stream = await getDirectRadioStream(encoded);
     const url = new URL(stream.url);
     if (!["https:", "http:"].includes(url.protocol)) throw new Error("Unsupported stream protocol.");
     const headers = {};
@@ -62,7 +60,11 @@ export async function GET(request) {
       },
     });
     return new Response(body, { status: upstream.status, headers: responseHeaders });
-  } catch {
-    return NextResponse.json({ error: "stream_failed", message: "Check NodeLink direct streaming and Spotify playback configuration." }, { status: 502 });
+  } catch (error) {
+    console.error("[radio] Stream request failed:", error?.code || error?.name, error?.message);
+    return NextResponse.json({
+      error: error instanceof RadioServerError ? error.code : "stream_failed",
+      message: error instanceof RadioServerError ? error.message : "NodeLink could not resolve this track for browser playback.",
+    }, { status: 502 });
   }
 }
